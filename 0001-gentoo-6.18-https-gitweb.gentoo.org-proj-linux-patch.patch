@@ -1,0 +1,1297 @@
+From b7971d3145f1cf949abf38365ffd76243df80616 Mon Sep 17 00:00:00 2001
+From: Salman Wahib <sxlmnwb.dev@gmail.com>
+Date: Mon, 24 Aug 2026 21:35:29 +0700
+Subject: [PATCH 01/12] gentoo: (6.18)
+ https://gitweb.gentoo.org/proj/linux-patches.git
+
+- 1510_fs-enable-link-security-restrictions-by-default.patch
+- 1700_sparc-address-warray-bound-warnings.patch
+- 1730_parisc-Disable-prctl.patch
+- 2000_BT-Check-key-sizes-only-if-Secure-Simple-Pairing-enabled.patch
+- 2901_permit-menuconfig-sorting.patch
+- 2920_sign-file-patch-for-libressl.patch
+- 2990_libbpf-v2-workaround-Wmaybe-uninitialized-false-pos.patch
+- 2991_libbpf_add_WERROR_option.patch
+- 3000_Support-printing-firmware-info.patch
+- 4567_distro-Gentoo-Kconfig.patch
+- 5010_enable-cpu-optimizations-universal.patch
+
+Co-authored-by: Mike Pagano <mpagano@gentoo.org>
+Signed-off-by: Salman Wahib <sxlmnwb.dev@gmail.com>
+---
+ Kconfig                             |   2 +
+ arch/sparc/mm/init_64.c             |   6 +-
+ arch/x86/Kconfig.cpu                | 427 +++++++++++++++++++++++++++-
+ arch/x86/Makefile                   | 213 +++++++++++++-
+ distro/Kconfig                      | 170 +++++++++++
+ drivers/base/firmware_loader/main.c |   5 +
+ fs/namei.c                          |   8 +-
+ kernel/sys.c                        |  10 +-
+ net/bluetooth/hci_conn.c            |   9 +-
+ scripts/kconfig/lxdialog/dialog.h   |   5 +-
+ scripts/kconfig/lxdialog/menubox.c  |   7 +-
+ scripts/kconfig/lxdialog/util.c     |  79 +++++
+ scripts/kconfig/mconf.c             |   9 +-
+ scripts/sign-file.c                 |   7 +-
+ tools/lib/bpf/Makefile              |   7 +-
+ tools/lib/bpf/elf.c                 |   8 +
+ 16 files changed, 945 insertions(+), 27 deletions(-)
+ create mode 100644 distro/Kconfig
+
+diff --git a/Kconfig b/Kconfig
+index 307e58114..91aa4be3d 100644
+--- a/Kconfig
++++ b/Kconfig
+@@ -32,3 +32,5 @@ source "lib/Kconfig.debug"
+ source "Documentation/Kconfig"
+ 
+ source "io_uring/Kconfig"
++
++source "distro/Kconfig"
+diff --git a/arch/sparc/mm/init_64.c b/arch/sparc/mm/init_64.c
+index df9f7c444..56a9e315b 100644
+--- a/arch/sparc/mm/init_64.c
++++ b/arch/sparc/mm/init_64.c
+@@ -3068,11 +3068,11 @@ static inline resource_size_t compute_kern_paddr(void *addr)
+ static void __init kernel_lds_init(void)
+ {
+ 	code_resource.start = compute_kern_paddr(_text);
+-	code_resource.end   = compute_kern_paddr(_etext - 1);
++	code_resource.end   = compute_kern_paddr(_etext) - 1;
+ 	data_resource.start = compute_kern_paddr(_etext);
+-	data_resource.end   = compute_kern_paddr(_edata - 1);
++	data_resource.end   = compute_kern_paddr(_edata) - 1;
+ 	bss_resource.start  = compute_kern_paddr(__bss_start);
+-	bss_resource.end    = compute_kern_paddr(_end - 1);
++	bss_resource.end    = compute_kern_paddr(_end) - 1;
+ }
+ 
+ static int __init report_memory(void)
+diff --git a/arch/x86/Kconfig.cpu b/arch/x86/Kconfig.cpu
+index 755d64bb9..9a3083a75 100644
+--- a/arch/x86/Kconfig.cpu
++++ b/arch/x86/Kconfig.cpu
+@@ -31,6 +31,7 @@ choice
+ 	  - "Pentium-4" for the Intel Pentium 4 or P4-based Celeron.
+ 	  - "K6" for the AMD K6, K6-II and K6-III (aka K6-3D).
+ 	  - "Athlon" for the AMD K7 family (Athlon/Duron/Thunderbird).
++	  - "Opteron/Athlon64/Hammer/K8" for all K8 and newer AMD CPUs.
+ 	  - "Crusoe" for the Transmeta Crusoe series.
+ 	  - "Efficeon" for the Transmeta Efficeon series.
+ 	  - "Winchip-C6" for original IDT Winchip.
+@@ -41,7 +42,10 @@ choice
+ 	  - "CyrixIII/VIA C3" for VIA Cyrix III or VIA C3.
+ 	  - "VIA C3-2" for VIA C3-2 "Nehemiah" (model 9 and above).
+ 	  - "VIA C7" for VIA C7.
++	  - "Intel P4" for the Pentium 4/Netburst microarchitecture.
++	  - "Core 2/newer Xeon" for all core2 and newer Intel CPUs.
+ 	  - "Intel Atom" for the Atom-microarchitecture CPUs.
++	  - "Generic-x86-64" for a kernel which runs on any x86-64 CPU.
+ 
+ 	  See each option's help text for additional details. If you don't know
+ 	  what to do, choose "Pentium-Pro".
+@@ -135,10 +139,21 @@ config MPENTIUM4
+ 		-Mobile Pentium 4
+ 		-Mobile Pentium 4 M
+ 		-Extreme Edition (Gallatin)
++		-Prescott
++		-Prescott 2M
++		-Cedar Mill
++		-Presler
++		-Smithfiled
+ 	    Xeons (Intel Xeon, Xeon MP, Xeon LV, Xeon MV) corename:
+ 		-Foster
+ 		-Prestonia
+ 		-Gallatin
++		-Nocona
++		-Irwindale
++		-Cranford
++		-Potomac
++		-Paxville
++		-Dempsey
+ 
+ config MK6
+ 	bool "K6/K6-II/K6-III"
+@@ -281,6 +296,402 @@ config X86_GENERIC
+ 	  This is really intended for distributors who need more
+ 	  generic optimizations.
+ 
++choice
++	prompt "x86_64 Compiler Build Optimization"
++	depends on !X86_NATIVE_CPU
++	default GENERIC_CPU
++
++config GENERIC_CPU
++	bool "Generic-x86-64"
++	depends on X86_64
++	help
++	  Generic x86-64 CPU.
++	  Runs equally well on all x86-64 CPUs.
++
++config MK8
++	bool "AMD Opteron/Athlon64/Hammer/K8"
++	help
++	  Select this for an AMD Opteron or Athlon64 Hammer-family processor.
++	  Enables use of some extended instructions, and passes appropriate
++	  optimization flags to GCC.
++
++config MK8SSE3
++	bool "AMD Opteron/Athlon64/Hammer/K8 with SSE3"
++	help
++	  Select this for improved AMD Opteron or Athlon64 Hammer-family processors.
++	  Enables use of some extended instructions, and passes appropriate
++	  optimization flags to GCC.
++
++config MK10
++	bool "AMD 61xx/7x50/PhenomX3/X4/II/K10"
++	help
++	  Select this for an AMD 61xx Eight-Core Magny-Cours, Athlon X2 7x50,
++	  Phenom X3/X4/II, Athlon II X2/X3/X4, or Turion II-family processor.
++	  Enables use of some extended instructions, and passes appropriate
++	  optimization flags to GCC.
++
++config MBARCELONA
++	bool "AMD Barcelona"
++	help
++	  Select this for AMD Family 10h Barcelona processors.
++
++	  Enables -march=barcelona
++
++config MBOBCAT
++	bool "AMD Bobcat"
++	help
++	  Select this for AMD Family 14h Bobcat processors.
++
++	  Enables -march=btver1
++
++config MJAGUAR
++	bool "AMD Jaguar"
++	help
++	  Select this for AMD Family 16h Jaguar processors.
++
++	  Enables -march=btver2
++
++config MBULLDOZER
++	bool "AMD Bulldozer"
++	help
++	  Select this for AMD Family 15h Bulldozer processors.
++
++	  Enables -march=bdver1
++
++config MPILEDRIVER
++	bool "AMD Piledriver"
++	help
++	  Select this for AMD Family 15h Piledriver processors.
++
++	  Enables -march=bdver2
++
++config MSTEAMROLLER
++	bool "AMD Steamroller"
++	help
++	  Select this for AMD Family 15h Steamroller processors.
++
++	  Enables -march=bdver3
++
++config MEXCAVATOR
++	bool "AMD Excavator"
++	help
++	  Select this for AMD Family 15h Excavator processors.
++
++	  Enables -march=bdver4
++
++config MZEN
++	bool "AMD Ryzen"
++	help
++	  Select this for AMD Family 17h Zen processors.
++
++	  Enables -march=znver1
++
++config MZEN2
++	bool "AMD Ryzen 2"
++	help
++	  Select this for AMD Family 17h Zen 2 processors.
++
++	  Enables -march=znver2
++
++config MZEN3
++	bool "AMD Ryzen 3"
++	depends on (CC_IS_GCC && GCC_VERSION >= 100300) || (CC_IS_CLANG && CLANG_VERSION >= 120000)
++	help
++	  Select this for AMD Family 19h Zen 3 processors.
++
++	  Enables -march=znver3
++
++config MZEN4
++	bool "AMD Ryzen 4"
++	depends on (CC_IS_GCC && GCC_VERSION >= 130000) || (CC_IS_CLANG && CLANG_VERSION >= 160000)
++	help
++	  Select this for AMD Family 19h Zen 4 processors.
++
++	  Enables -march=znver4
++
++config MZEN5
++	bool "AMD Ryzen 5"
++	depends on (CC_IS_GCC && GCC_VERSION > 140000) || (CC_IS_CLANG && CLANG_VERSION >= 190100)
++	help
++	  Select this for AMD Family 19h Zen 5 processors.
++
++	  Enables -march=znver5
++
++config MPSC
++	bool "Intel P4 / older Netburst based Xeon"
++	depends on X86_64
++	help
++	  Optimize for Intel Pentium 4, Pentium D and older Nocona/Dempsey
++	  Xeon CPUs with Intel 64bit which is compatible with x86-64.
++	  Note that the latest Xeons (Xeon 51xx and 53xx) are not based on the
++	  Netburst core and shouldn't use this option. You can distinguish them
++	  using the cpu family field
++	  in /proc/cpuinfo. Family 15 is an older Xeon, Family 6 a newer one.
++
++config MCORE2
++	bool "Intel Core 2"
++	depends on X86_64
++	help
++
++	  Select this for Intel Core 2 and newer Core 2 Xeons (Xeon 51xx and
++	  53xx) CPUs. You can distinguish newer from older Xeons by the CPU
++	  family in /proc/cpuinfo. Newer ones have 6 and older ones 15
++	  (not a typo)
++
++	  Enables -march=core2
++
++config MNEHALEM
++	bool "Intel Nehalem"
++	depends on X86_64
++	help
++
++	  Select this for 1st Gen Core processors in the Nehalem family.
++
++	  Enables -march=nehalem
++
++config MWESTMERE
++	bool "Intel Westmere"
++	depends on X86_64
++	help
++
++	  Select this for the Intel Westmere formerly Nehalem-C family.
++
++	  Enables -march=westmere
++
++config MSILVERMONT
++	bool "Intel Silvermont"
++	depends on X86_64
++	help
++
++	  Select this for the Intel Silvermont platform.
++
++	  Enables -march=silvermont
++
++config MGOLDMONT
++	bool "Intel Goldmont"
++	depends on X86_64
++	help
++
++	  Select this for the Intel Goldmont platform including Apollo Lake and Denverton.
++
++	  Enables -march=goldmont
++
++config MGOLDMONTPLUS
++	bool "Intel Goldmont Plus"
++	depends on X86_64
++	help
++
++	  Select this for the Intel Goldmont Plus platform including Gemini Lake.
++
++	  Enables -march=goldmont-plus
++
++config MSANDYBRIDGE
++	bool "Intel Sandy Bridge"
++	depends on X86_64
++	help
++
++	  Select this for 2nd Gen Core processors in the Sandy Bridge family.
++
++	  Enables -march=sandybridge
++
++config MIVYBRIDGE
++	bool "Intel Ivy Bridge"
++	depends on X86_64
++	help
++
++	  Select this for 3rd Gen Core processors in the Ivy Bridge family.
++
++	  Enables -march=ivybridge
++
++config MHASWELL
++	bool "Intel Haswell"
++	depends on X86_64
++	help
++
++	  Select this for 4th Gen Core processors in the Haswell family.
++
++	  Enables -march=haswell
++
++config MBROADWELL
++	bool "Intel Broadwell"
++	depends on X86_64
++	help
++
++	  Select this for 5th Gen Core processors in the Broadwell family.
++
++	  Enables -march=broadwell
++
++config MSKYLAKE
++	bool "Intel Skylake"
++	depends on X86_64
++	help
++
++	  Select this for 6th Gen Core processors in the Skylake family.
++
++	  Enables -march=skylake
++
++config MSKYLAKEX
++	bool "Intel Skylake-X (7th Gen Core i7/i9)"
++	depends on X86_64
++	help
++
++	  Select this for 7th Gen Core i7/i9 processors in the Skylake-X family.
++
++	  Enables -march=skylake-avx512
++
++config MCANNONLAKE
++	bool "Intel Coffee Lake/Kaby Lake Refresh (8th Gen Core i3/i5/i7)"
++	depends on X86_64
++	help
++
++	  Select this for 8th Gen Core i3/i5/i7 processors in the Coffee Lake or Kaby Lake Refresh families.
++
++	  Enables -march=cannonlake
++
++config MICELAKE_CLIENT
++	bool "Intel Ice Lake"
++	depends on X86_64
++	help
++
++	  Select this for 10th Gen Core client processors in the Ice Lake family.
++
++	  Enables -march=icelake-client
++
++config MICELAKE_SERVER
++	bool "Intel Ice Lake-SP (3rd Gen Xeon Scalable)"
++	depends on X86_64
++	help
++
++	  Select this for 3rd Gen Xeon Scalable processors in the Ice Lake-SP family.
++
++	  Enables -march=icelake-server
++
++config MCOOPERLAKE
++	bool "Intel Cooper Lake"
++	depends on X86_64
++	depends on (CC_IS_GCC && GCC_VERSION > 100100) || (CC_IS_CLANG && CLANG_VERSION >= 100000)
++	help
++
++	  Select this for Xeon processors in the Cooper Lake family.
++
++	  Enables -march=cooperlake
++
++config MCASCADELAKE
++	bool "Intel Cascade Lake"
++	depends on X86_64
++	depends on (CC_IS_GCC && GCC_VERSION > 100100) || (CC_IS_CLANG && CLANG_VERSION >= 100000)
++	help
++
++	  Select this for Xeon processors in the Cascade Lake family.
++
++	  Enables -march=cascadelake
++
++config MTIGERLAKE
++	bool "Intel Tiger Lake"
++	depends on X86_64
++	depends on  (CC_IS_GCC && GCC_VERSION > 100100) || (CC_IS_CLANG && CLANG_VERSION >= 100000)
++	help
++
++	  Select this for third-generation 10 nm process processors in the Tiger Lake family.
++
++	  Enables -march=tigerlake
++
++config MSAPPHIRERAPIDS
++	bool "Intel Sapphire Rapids"
++	depends on X86_64
++	depends on (CC_IS_GCC && GCC_VERSION > 110000) || (CC_IS_CLANG && CLANG_VERSION >= 120000)
++	help
++
++	  Select this for fourth-generation 10 nm process processors in the Sapphire Rapids family.
++
++	  Enables -march=sapphirerapids
++
++config MROCKETLAKE
++	bool "Intel Rocket Lake"
++	depends on X86_64
++	depends on (CC_IS_GCC && GCC_VERSION > 110000) || (CC_IS_CLANG && CLANG_VERSION >= 120000)
++	help
++
++	  Select this for eleventh-generation processors in the Rocket Lake family.
++
++	  Enables -march=rocketlake
++
++config MALDERLAKE
++	bool "Intel Alder Lake"
++	depends on X86_64
++	depends on (CC_IS_GCC && GCC_VERSION > 110000) || (CC_IS_CLANG && CLANG_VERSION >= 120000)
++	help
++
++	  Select this for twelfth-generation processors in the Alder Lake family.
++
++	  Enables -march=alderlake
++
++config MRAPTORLAKE
++	bool "Intel Raptor Lake"
++	depends on X86_64
++	depends on (CC_IS_GCC && GCC_VERSION >= 130000) || (CC_IS_CLANG && CLANG_VERSION >= 150500)
++	help
++
++	  Select this for thirteenth-generation processors in the Raptor Lake family.
++
++	  Enables -march=raptorlake
++
++config MMETEORLAKE
++	bool "Intel Meteor Lake"
++	depends on X86_64
++	depends on (CC_IS_GCC && GCC_VERSION >= 130000) || (CC_IS_CLANG && CLANG_VERSION >= 150500)
++	help
++
++	  Select this for fourteenth-generation processors in the Meteor Lake family.
++
++	  Enables -march=meteorlake
++
++config MEMERALDRAPIDS
++	bool "Intel Emerald Rapids"
++	depends on X86_64
++	depends on (CC_IS_GCC && GCC_VERSION > 130000) || (CC_IS_CLANG && CLANG_VERSION >= 150500)
++	help
++
++	  Select this for fifth-generation Xeon Scalable processors in the Emerald Rapids family.
++
++	  Enables -march=emeraldrapids
++
++config MDIAMONDRAPIDS
++	bool "Intel Diamond Rapids (7th Gen Xeon Scalable)"
++	depends on X86_64
++	depends on (CC_IS_GCC && GCC_VERSION > 150000) || (CC_IS_CLANG && CLANG_VERSION >= 200000)
++	help
++
++	  Select this for seventh-generation Xeon Scalable processors in the Diamond Rapids family.
++
++	  Enables -march=diamondrapids
++
++endchoice
++
++config X86_64_VERSION
++	int "x86-64 compiler ISA level"
++	range 1 3
++	depends on (CC_IS_GCC && GCC_VERSION > 110000) || (CC_IS_CLANG && CLANG_VERSION >= 120000)
++	depends on X86_64 && GENERIC_CPU
++	help
++	  Specify a specific x86-64 compiler ISA level.
++
++	  There are three x86-64 ISA levels that work on top of
++	  the x86-64 baseline, namely: x86-64-v2 and x86-64-v3.
++
++	  x86-64-v2 brings support for vector instructions up to Streaming SIMD
++	  Extensions 4.2 (SSE4.2) and Supplemental Streaming SIMD Extensions 3
++	  (SSSE3), the POPCNT instruction, and CMPXCHG16B.
++
++	  x86-64-v3 adds vector instructions up to AVX2, MOVBE, and additional
++	  bit-manipulation instructions.
++
++	  x86-64-v4 is not included since the kernel does not use AVX512 instructions
++
++	  You can find the best version for your CPU by running one of the following:
++	  /lib/ld-linux-x86-64.so.2 --help | grep supported
++	  /lib64/ld-linux-x86-64.so.2 --help | grep supported
++
+ #
+ # Define implied options from the CPU selection here
+ config X86_INTERNODE_CACHE_SHIFT
+@@ -290,8 +701,8 @@ config X86_INTERNODE_CACHE_SHIFT
+ 
+ config X86_L1_CACHE_SHIFT
+ 	int
+-	default "7" if MPENTIUM4
+-	default "6" if MK7 || MPENTIUMM || MATOM || MVIAC7 || X86_GENERIC || X86_64
++	default "7" if MPENTIUM4 || MPSC
++	default "6" if MK7 || MK8 || MPENTIUMM || MCORE2 || MATOM || MVIAC7 || X86_GENERIC || GENERIC_CPU || MK8SSE3 || MK10 || MBARCELONA || MBOBCAT || MJAGUAR || MBULLDOZER || MPILEDRIVER || MSTEAMROLLER || MEXCAVATOR || MZEN || MZEN2 || MZEN3 || MZEN4 || MZEN5 || MNEHALEM || MWESTMERE || MSILVERMONT || MGOLDMONT || MGOLDMONTPLUS || MSANDYBRIDGE || MIVYBRIDGE || MHASWELL || MBROADWELL || MSKYLAKE || MSKYLAKEX || MCANNONLAKE || MICELAKE_CLIENT || MICELAKE_SERVER || MCASCADELAKE || MCOOPERLAKE || MTIGERLAKE || MSAPPHIRERAPIDS || MROCKETLAKE || MALDERLAKE || MRAPTORLAKE || MMETEORLAKE || MEMERALDRAPIDS || MDIAMONDRAPIDS || X86_NATIVE_CPU
+ 	default "4" if MELAN || M486SX || M486 || MGEODEGX1
+ 	default "5" if MWINCHIP3D || MWINCHIPC6 || MCRUSOE || MEFFICEON || MCYRIXIII || MK6 || MPENTIUMIII || MPENTIUMII || M686 || M586MMX || M586TSC || M586 || MVIAC3_2 || MGEODE_LX
+ 
+@@ -309,19 +720,19 @@ config X86_ALIGNMENT_16
+ 
+ config X86_INTEL_USERCOPY
+ 	def_bool y
+-	depends on MPENTIUM4 || MPENTIUMM || MPENTIUMIII || MPENTIUMII || M586MMX || X86_GENERIC || MK7 || MEFFICEON
++	depends on MPENTIUM4 || MPENTIUMM || MPENTIUMIII || MPENTIUMII || M586MMX || X86_GENERIC || MK8 || MK7 || MEFFICEON || MCORE2 || MNEHALEM || MWESTMERE || MSILVERMONT || MGOLDMONT || MGOLDMONTPLUS || MSANDYBRIDGE || MIVYBRIDGE || MHASWELL || MBROADWELL || MSKYLAKE || MSKYLAKEX || MCANNONLAKE || MICELAKE_CLIENT || MICELAKE_SERVER || MCASCADELAKE || MCOOPERLAKE || MTIGERLAKE || MSAPPHIRERAPIDS || MROCKETLAKE || MALDERLAKE || MRAPTORLAKE || MMETEORLAKE || MEMERALDRAPIDS || MDIAMONDRAPIDS
+ 
+ config X86_USE_PPRO_CHECKSUM
+ 	def_bool y
+-	depends on MWINCHIP3D || MWINCHIPC6 || MCYRIXIII || MK7 || MK6 || MPENTIUM4 || MPENTIUMM || MPENTIUMIII || MPENTIUMII || M686 || MVIAC3_2 || MVIAC7 || MEFFICEON || MGEODE_LX || MATOM
++	depends on MWINCHIP3D || MWINCHIPC6 || MCYRIXIII || MK7 || MK6 || MPENTIUM4 || MPENTIUMM || MPENTIUMIII || MPENTIUMII || M686 || MK8 || MVIAC3_2 || MVIAC7 || MEFFICEON || MGEODE_LX || MCORE2 || MATOM || MK8SSE3 || MK10 || MBARCELONA || MBOBCAT || MJAGUAR || MBULLDOZER || MPILEDRIVER || MSTEAMROLLER || MEXCAVATOR || MZEN || MZEN2 || MZEN3 || MZEN4 || MZEN5 || MNEHALEM || MWESTMERE || MSILVERMONT || MGOLDMONT || MGOLDMONTPLUS || MSANDYBRIDGE || MIVYBRIDGE || MHASWELL || MBROADWELL || MSKYLAKE || MSKYLAKEX || MCANNONLAKE || MICELAKE_CLIENT || MICELAKE_SERVER || MCASCADELAKE || MCOOPERLAKE || MTIGERLAKE || MSAPPHIRERAPIDS || MROCKETLAKE || MALDERLAKE || MRAPTORLAKE || MMETEORLAKE || MEMERALDRAPIDS || MDIAMONDRAPIDS
+ 
+ config X86_TSC
+ 	def_bool y
+-	depends on (MWINCHIP3D || MCRUSOE || MEFFICEON || MCYRIXIII || MK7 || MK6 || MPENTIUM4 || MPENTIUMM || MPENTIUMIII || MPENTIUMII || M686 || M586MMX || M586TSC || MVIAC3_2 || MVIAC7 || MGEODEGX1 || MGEODE_LX || MATOM) || X86_64
++	depends on (MWINCHIP3D || MCRUSOE || MEFFICEON || MCYRIXIII || MK7 || MK6 || MPENTIUM4 || MPENTIUMM || MPENTIUMIII || MPENTIUMII || M686 || M586MMX || M586TSC || MK8 || MVIAC3_2 || MVIAC7 || MGEODEGX1 || MGEODE_LX || MCORE2 || MATOM) || X86_64
+ 
+ config X86_HAVE_PAE
+ 	def_bool y
+-	depends on MCRUSOE || MEFFICEON || MCYRIXIII || MPENTIUM4 || MPENTIUMM || MPENTIUMIII || MPENTIUMII || M686 || MVIAC7 || MATOM || X86_64
++	depends on MCRUSOE || MEFFICEON || MCYRIXIII || MPENTIUM4 || MPENTIUMM || MPENTIUMIII || MPENTIUMII || M686 || MK8 || MVIAC7 || MCORE2 || MATOM || X86_64
+ 
+ config X86_CX8
+ 	def_bool y
+@@ -331,12 +742,12 @@ config X86_CX8
+ # generates cmov.
+ config X86_CMOV
+ 	def_bool y
+-	depends on (MK7 || MPENTIUM4 || MPENTIUMM || MPENTIUMIII || MPENTIUMII || M686 || MVIAC3_2 || MVIAC7 || MCRUSOE || MEFFICEON || MATOM || MGEODE_LX || X86_64)
++	depends on (MK8 || MK7 || MCORE2 || MPENTIUM4 || MPENTIUMM || MPENTIUMIII || MPENTIUMII || M686 || MVIAC3_2 || MVIAC7 || MCRUSOE || MEFFICEON || X86_64 || MATOM || MGEODE_LX)
+ 
+ config X86_MINIMUM_CPU_FAMILY
+ 	int
+ 	default "64" if X86_64
+-	default "6" if X86_32 && (MPENTIUM4 || MPENTIUMM || MPENTIUMIII || MPENTIUMII || M686 || MVIAC3_2 || MVIAC7 || MEFFICEON || MATOM || MK7)
++	default "6" if X86_32 && (MPENTIUM4 || MPENTIUMM || MPENTIUMIII || MPENTIUMII || M686 || MVIAC3_2 || MVIAC7 || MEFFICEON || MATOM || MCORE2 || MK7 || MK8)
+ 	default "5" if X86_32 && X86_CX8
+ 	default "4"
+ 
+diff --git a/arch/x86/Makefile b/arch/x86/Makefile
+index 5aa6d5f4c..b248227b5 100644
+--- a/arch/x86/Makefile
++++ b/arch/x86/Makefile
+@@ -170,10 +170,221 @@ ifdef CONFIG_X86_NATIVE_CPU
+         KBUILD_CFLAGS += -march=native
+         KBUILD_RUSTFLAGS += -Ctarget-cpu=native
+ else
++ifdef CONFIG_MK8
++        KBUILD_CFLAGS += -march=k8
++        KBUILD_RUSTFLAGS += -Ctarget-cpu=k8
++endif
++
++ifdef CONFIG_MK8SSE3
++        KBUILD_CFLAGS += -march=k8-sse3
++        KBUILD_RUSTFLAGS += -Ctarget-cpu=k8-sse3
++endif
++
++ifdef CONFIG_MK10
++        KBUILD_CFLAGS += -march=amdfam10
++        KBUILD_RUSTFLAGS += -Ctarget-cpu=amdfam10
++endif
++
++ifdef CONFIG_MBARCELONA
++        KBUILD_CFLAGS += -march=barcelona
++        KBUILD_RUSTFLAGS += -Ctarget-cpu=barcelona
++endif
++
++ifdef CONFIG_MBOBCAT
++        KBUILD_CFLAGS += -march=btver1
++        KBUILD_RUSTFLAGS += -Ctarget-cpu=btver1
++endif
++
++ifdef CONFIG_MJAGUAR
++        KBUILD_CFLAGS += -march=btver2
++        KBUILD_RUSTFLAGS += -Ctarget-cpu=btver2
++endif
++
++ifdef CONFIG_MBULLDOZER
++        KBUILD_CFLAGS += -march=bdver1
++        KBUILD_RUSTFLAGS += -Ctarget-cpu=bdver1
++endif
++
++ifdef CONFIG_MPILEDRIVER
++        KBUILD_CFLAGS += -march=bdver2 -mno-tbm
++        KBUILD_RUSTFLAGS += -Ctarget-cpu=bdver2 -mno-tbm
++endif
++
++ifdef CONFIG_MSTEAMROLLER
++        KBUILD_CFLAGS += -march=bdver3 -mno-tbm
++        KBUILD_RUSTFLAGS += -Ctarget-cpu=bdver3 -mno-tbm
++endif
++
++ifdef CONFIG_MEXCAVATOR
++        KBUILD_CFLAGS += -march=bdver4 -mno-tbm
++        KBUILD_RUSTFLAGS += -Ctarget-cpu=bdver4 -mno-tbm
++endif
++
++ifdef CONFIG_MZEN
++        KBUILD_CFLAGS += -march=znver1
++        KBUILD_RUSTFLAGS += -Ctarget-cpu=znver1
++endif
++
++ifdef CONFIG_MZEN2
++        KBUILD_CFLAGS += -march=znver2
++        KBUILD_RUSTFLAGS += -Ctarget-cpu=znver2
++endif
++
++ifdef CONFIG_MZEN3
++        KBUILD_CFLAGS += -march=znver3
++        KBUILD_RUSTFLAGS += -Ctarget-cpu=znver3
++endif
++
++ifdef CONFIG_MZEN4
++        KBUILD_CFLAGS += -march=znver4
++        KBUILD_RUSTFLAGS += -Ctarget-cpu=znver4
++endif
++
++ifdef CONFIG_MZEN5
++        KBUILD_CFLAGS += -march=znver5
++        KBUILD_RUSTFLAGS += -Ctarget-cpu=znver5
++endif
++
++ifdef CONFIG_MPSC
++        KBUILD_CFLAGS += -march=nocona
++        KBUILD_RUSTFLAGS += -Ctarget-cpu=nocona
++endif
++
++ifdef CONFIG_MCORE2
++        KBUILD_CFLAGS += -march=core2
++        KBUILD_RUSTFLAGS += -Ctarget-cpu=core2
++endif
++
++ifdef CONFIG_MNEHALEM
++        KBUILD_CFLAGS += -march=nehalem
++        KBUILD_RUSTFLAGS += -Ctarget-cpu=nehalem
++endif
++
++ifdef CONFIG_MWESTMERE
++        KBUILD_CFLAGS += -march=westmere
++        KBUILD_RUSTFLAGS += -Ctarget-cpu=westmere
++endif
++
++ifdef CONFIG_MSILVERMONT
++        KBUILD_CFLAGS += -march=silvermont
++        KBUILD_RUSTFLAGS += -Ctarget-cpu=silvermont
++endif
++
++ifdef CONFIG_MGOLDMONT
++        KBUILD_CFLAGS += -march=goldmont
++        KBUILD_RUSTFLAGS += -Ctarget-cpu=goldmont
++endif
++
++ifdef CONFIG_MGOLDMONTPLUS
++        KBUILD_CFLAGS += -march=goldmont-plus
++        KBUILD_RUSTFLAGS += -Ctarget-cpu=goldmont-plus
++endif
++
++ifdef CONFIG_MSANDYBRIDGE
++        KBUILD_CFLAGS += -march=sandybridge
++        KBUILD_RUSTFLAGS += -Ctarget-cpu=sandybridge
++endif
++
++ifdef CONFIG_MIVYBRIDGE
++        KBUILD_CFLAGS += -march=ivybridge
++        KBUILD_RUSTFLAGS += -Ctarget-cpu=ivybridge
++endif
++
++ifdef CONFIG_MHASWELL
++        KBUILD_CFLAGS += -march=haswell
++        KBUILD_RUSTFLAGS += -Ctarget-cpu=haswell
++endif
++
++ifdef CONFIG_MBROADWELL
++        KBUILD_CFLAGS += -march=broadwell
++        KBUILD_RUSTFLAGS += -Ctarget-cpu=broadwell
++endif
++
++ifdef CONFIG_MSKYLAKE
++        KBUILD_CFLAGS += -march=skylake
++        KBUILD_RUSTFLAGS += -Ctarget-cpu=skylake
++endif
++
++ifdef CONFIG_MSKYLAKEX
++        KBUILD_CFLAGS += -march=skylake-avx512
++        KBUILD_RUSTFLAGS += -Ctarget-cpu=skylake-avx512
++endif
++
++ifdef CONFIG_MCANNONLAKE
++        KBUILD_CFLAGS += -march=cannonlake
++        KBUILD_RUSTFLAGS += -Ctarget-cpu=cannonlake
++endif
++
++ifdef CONFIG_MICELAKE_CLIENT
++        KBUILD_CFLAGS += -march=icelake-client
++        KBUILD_RUSTFLAGS += -Ctarget-cpu=icelake-client
++endif
++
++ifdef CONFIG_MICELAKE_SERVER
++        KBUILD_CFLAGS += -march=icelake-server
++        KBUILD_RUSTFLAGS += -Ctarget-cpu=icelake-server
++endif
++
++ifdef CONFIG_MCOOPERLAKE
++        KBUILD_CFLAGS += -march=cooperlake
++        KBUILD_RUSTFLAGS += -Ctarget-cpu=cooperlake
++endif
++
++ifdef CONFIG_MCASCADELAKE
++        KBUILD_CFLAGS += -march=cascadelake
++        KBUILD_RUSTFLAGS += -Ctarget-cpu=cascadelake
++endif
++
++ifdef CONFIG_MTIGERLAKE
++        KBUILD_CFLAGS += -march=tigerlake
++        KBUILD_RUSTFLAGS += -Ctarget-cpu=tigerlake
++endif
++
++ifdef CONFIG_MSAPPHIRERAPIDS
++        KBUILD_CFLAGS += -march=sapphirerapids
++        KBUILD_RUSTFLAGS += -Ctarget-cpu=sapphirerapids
++endif
++
++ifdef CONFIG_MROCKETLAKE
++        KBUILD_CFLAGS += -march=rocketlake
++        KBUILD_RUSTFLAGS += -Ctarget-cpu=rocketlake
++endif
++
++ifdef CONFIG_MALDERLAKE
++        KBUILD_CFLAGS += -march=alderlake
++        KBUILD_RUSTFLAGS += -Ctarget-cpu=alderlake
++endif
++
++ifdef CONFIG_MRAPTORLAKE
++        KBUILD_CFLAGS += -march=raptorlake
++        KBUILD_RUSTFLAGS += -Ctarget-cpu=raptorlake
++endif
++
++ifdef CONFIG_MMETEORLAKE
++        KBUILD_CFLAGS += -march=meteorlake
++        KBUILD_RUSTFLAGS += -Ctarget-cpu=meteorlake
++endif
++
++ifdef CONFIG_MEMERALDRAPIDS
++        KBUILD_CFLAGS += -march=emeraldrapids
++        KBUILD_RUSTFLAGS += -Ctarget-cpu=emeraldrapids
++endif
++
++ifdef CONFIG_MDIAMONDRAPIDS
++        KBUILD_CFLAGS += -march=diamondrapids
++        KBUILD_RUSTFLAGS += -Ctarget-cpu=diamondrapids
++endif
++
++ifdef CONFIG_GENERIC_CPU
++ifeq ($(CONFIG_X86_64_VERSION),1)
+         KBUILD_CFLAGS += -march=x86-64 -mtune=generic
+         KBUILD_RUSTFLAGS += -Ctarget-cpu=x86-64 -Ztune-cpu=generic
++else
++        KBUILD_CFLAGS +=-march=x86-64-v$(CONFIG_X86_64_VERSION)
++        KBUILD_RUSTFLAGS += -Ctarget-cpu=x86-64-v$(CONFIG_X86_64_VERSION)
++endif
++endif
+ endif
+-
+         KBUILD_CFLAGS += -mno-red-zone
+         KBUILD_CFLAGS += -mcmodel=kernel
+         KBUILD_RUSTFLAGS += -Cno-redzone=y
+diff --git a/distro/Kconfig b/distro/Kconfig
+new file mode 100644
+index 000000000..a420a25f0
+--- /dev/null
++++ b/distro/Kconfig
+@@ -0,0 +1,170 @@
++menu "Gentoo Linux"
++
++config GENTOO_LINUX
++	bool "Gentoo Linux support"
++
++	default y
++
++	select CPU_FREQ_DEFAULT_GOV_SCHEDUTIL
++
++	help
++		In order to boot Gentoo Linux a minimal set of config settings needs to
++		be enabled in the kernel; to avoid the users from having to enable them
++		manually as part of a Gentoo Linux installation or a new clean config,
++		we enable these config settings by default for convenience.
++
++		See the settings that become available for more details and fine-tuning.
++
++config GENTOO_LINUX_UDEV
++	bool "Linux dynamic and persistent device naming (userspace devfs) support"
++
++	depends on GENTOO_LINUX
++	default y if GENTOO_LINUX
++
++	select DEVTMPFS
++	select TMPFS
++	select UNIX
++
++	select MMU
++	select SHMEM
++
++	help
++		In order to boot Gentoo Linux a minimal set of config settings needs to
++		be enabled in the kernel; to avoid the users from having to enable them
++		manually as part of a Gentoo Linux installation or a new clean config,
++		we enable these config settings by default for convenience.
++
++		Currently this only selects TMPFS, DEVTMPFS and their dependencies.
++		TMPFS is enabled to maintain a tmpfs file system at /dev/shm, /run and
++		/sys/fs/cgroup; DEVTMPFS to maintain a devtmpfs file system at /dev.
++
++		Some of these are critical files that need to be available early in the
++		boot process; if not available, it causes sysfs and udev to malfunction.
++
++		To ensure Gentoo Linux boots, it is best to leave this setting enabled;
++		if you run a custom setup, you could consider whether to disable this.
++
++config GENTOO_LINUX_PORTAGE
++	bool "Select options required by Portage features"
++
++	depends on GENTOO_LINUX
++	default y if GENTOO_LINUX
++
++	select CGROUPS
++	select NAMESPACES
++	select IPC_NS
++	select NET_NS
++	select PID_NS
++	select SYSVIPC
++	select USER_NS
++	select UTS_NS
++
++	help
++		This enables options required by various Portage FEATURES.
++		Currently this selects:
++
++		CGROUPS     (required for FEATURES=cgroup)
++		IPC_NS      (required for FEATURES=ipc-sandbox)
++		NET_NS      (required for FEATURES=network-sandbox)
++		PID_NS		(required for FEATURES=pid-sandbox)
++		SYSVIPC     (required by IPC_NS)
++   
++
++		It is highly recommended that you leave this enabled as these FEATURES
++		are, or will soon be, enabled by default.
++
++menu "Support for init systems, system and service managers"
++	visible if GENTOO_LINUX
++
++config GENTOO_LINUX_INIT_SCRIPT
++	bool "OpenRC, runit and other script based systems and managers"
++
++	default y if GENTOO_LINUX
++
++	depends on GENTOO_LINUX
++
++	select BINFMT_SCRIPT
++	select CGROUPS
++	select EPOLL
++	select FILE_LOCKING
++	select INOTIFY_USER
++	select SIGNALFD
++	select TIMERFD
++
++	help
++		The init system is the first thing that loads after the kernel booted.
++
++		These config settings allow you to select which init systems to support;
++		instead of having to select all the individual settings all over the
++		place, these settings allows you to select all the settings at once.
++
++		This particular setting enables all the known requirements for OpenRC,
++		runit and similar script based systems and managers.
++
++		If you are unsure about this, it is best to leave this setting enabled.
++
++config GENTOO_LINUX_INIT_SYSTEMD
++	bool "systemd"
++
++	default n
++
++	depends on GENTOO_LINUX && GENTOO_LINUX_UDEV
++
++	select AUTOFS_FS
++	select BLK_DEV_BSG if SCSI
++	select BPF_SYSCALL
++	select CGROUP_BPF
++	select CGROUPS
++	select DEVPTS_MULTIPLE_INSTANCES
++	select DMIID if X86_32 || X86_64 || X86
++	select EPOLL
++	select FANOTIFY
++	select FHANDLE
++	select FILE_LOCKING
++	select INOTIFY_USER
++	select IPV6
++	select KCMP
++	select NET
++	select NET_NS
++	select PROC_FS
++	select SECCOMP if HAVE_ARCH_SECCOMP
++	select SECCOMP_FILTER if HAVE_ARCH_SECCOMP_FILTER
++	select SIGNALFD
++	select SYSFS
++	select TIMERFD
++	select TMPFS_POSIX_ACL
++	select TMPFS_XATTR
++
++	select ANON_INODES
++	select BLOCK
++	select EVENTFD
++	select FSNOTIFY
++	select INET
++	select NLATTR
++
++	help
++		The init system is the first thing that loads after the kernel booted.
++
++		These config settings allow you to select which init systems to support;
++		instead of having to select all the individual settings all over the
++		place, these settings allows you to select all the settings at once.
++
++		This particular setting enables all the known requirements for systemd;
++		it also enables suggested optional settings, as the package suggests to.
++
++endmenu
++
++config GENTOO_PRINT_FIRMWARE_INFO
++	bool "Print firmware information that the kernel attempts to load"
++
++	depends on GENTOO_LINUX
++	default y
++
++	help
++		Enable this option to print information about firmware that the kernel
++		is attempting to load.  This information can be accessible via the
++		dmesg command-line utility
++
++		See the settings that become available for more details and fine-tuning.
++
++endmenu
+diff --git a/drivers/base/firmware_loader/main.c b/drivers/base/firmware_loader/main.c
+index 0f3e1779d..f13d7686a 100644
+--- a/drivers/base/firmware_loader/main.c
++++ b/drivers/base/firmware_loader/main.c
+@@ -863,6 +863,11 @@ _request_firmware(const struct firmware **firmware_p, const char *name,
+ 
+ 	ret = _request_firmware_prepare(&fw, name, device, buf, size,
+ 					offset, opt_flags);
++
++#ifdef CONFIG_GENTOO_PRINT_FIRMWARE_INFO
++        printk(KERN_NOTICE "Loading firmware: %s\n", name);
++#endif
++
+ 	if (ret <= 0) /* error or already assigned */
+ 		goto out;
+ 
+diff --git a/fs/namei.c b/fs/namei.c
+index 003c9a1b2..5ef10f2f1 100644
+--- a/fs/namei.c
++++ b/fs/namei.c
+@@ -1095,10 +1095,10 @@ static inline void put_link(struct nameidata *nd)
+ 		path_put(&last->link);
+ }
+ 
+-static int sysctl_protected_symlinks __read_mostly;
+-static int sysctl_protected_hardlinks __read_mostly;
+-static int sysctl_protected_fifos __read_mostly;
+-static int sysctl_protected_regular __read_mostly;
++static int sysctl_protected_symlinks __read_mostly = 1;
++static int sysctl_protected_hardlinks __read_mostly = 1;
++int sysctl_protected_fifos __read_mostly = 1;
++int sysctl_protected_regular __read_mostly = 1;
+ 
+ #ifdef CONFIG_SYSCTL
+ static const struct ctl_table namei_sysctls[] = {
+diff --git a/kernel/sys.c b/kernel/sys.c
+index 8b58eece4..b9d6cba80 100644
+--- a/kernel/sys.c
++++ b/kernel/sys.c
+@@ -2793,10 +2793,16 @@ SYSCALL_DEFINE5(prctl, int, option, unsigned long, arg2, unsigned long, arg3,
+ 		break;
+ #endif
+ 	case PR_SET_MDWE:
+-		error = prctl_set_mdwe(arg2, arg3, arg4, arg5);
++		if (IS_ENABLED(CONFIG_PARISC))
++			error = -EINVAL;
++		else
++			error = prctl_set_mdwe(arg2, arg3, arg4, arg5);
+ 		break;
+ 	case PR_GET_MDWE:
+-		error = prctl_get_mdwe(arg2, arg3, arg4, arg5);
++		if (IS_ENABLED(CONFIG_PARISC))
++			error = -EINVAL;
++		else
++			error = prctl_get_mdwe(arg2, arg3, arg4, arg5);
+ 		break;
+ 	case PR_PPC_GET_DEXCR:
+ 		if (arg3 || arg4 || arg5)
+diff --git a/net/bluetooth/hci_conn.c b/net/bluetooth/hci_conn.c
+index e630d6369..99daf878f 100644
+--- a/net/bluetooth/hci_conn.c
++++ b/net/bluetooth/hci_conn.c
+@@ -2417,8 +2417,13 @@ int hci_conn_check_link_mode(struct hci_conn *conn)
+ 		return 0;
+ 	}
+ 
+-	if (hci_conn_ssp_enabled(conn) &&
+-	    !test_bit(HCI_CONN_ENCRYPT, &conn->flags))
++	/* If Secure Simple Pairing is not enabled, then legacy connection
++	 * setup is used and no encryption or key sizes can be enforced.
++	 */
++	if (!hci_conn_ssp_enabled(conn))
++		return 1;
++
++	if (!test_bit(HCI_CONN_ENCRYPT, &conn->flags))
+ 		return 0;
+ 
+ 	return 1;
+diff --git a/scripts/kconfig/lxdialog/dialog.h b/scripts/kconfig/lxdialog/dialog.h
+index f6c2ebe6d..a036ed8cb 100644
+--- a/scripts/kconfig/lxdialog/dialog.h
++++ b/scripts/kconfig/lxdialog/dialog.h
+@@ -58,6 +58,8 @@
+ #define ACS_DARROW 'v'
+ #endif
+ 
++#define KEY_ACTION_SORT 11
++
+ /* error return codes */
+ #define ERRDISPLAYTOOSMALL (KEY_MAX + 1)
+ 
+@@ -127,6 +129,7 @@ void item_set_selected(int val);
+ int item_activate_selected(void);
+ void *item_data(void);
+ char item_tag(void);
++void sort_items(void);
+ 
+ /* item list manipulation for lxdialog use */
+ #define MAXITEMSTR 200
+@@ -196,7 +199,7 @@ int dialog_textbox(const char *title, const char *tbuf, int initial_height,
+ 		   int initial_width, int *_vscroll, int *_hscroll,
+ 		   int (*extra_key_cb)(int, size_t, size_t, void *), void *data);
+ int dialog_menu(const char *title, const char *prompt,
+-		const void *selected, int *s_scroll);
++		const void *selected, int *s_scroll, bool sort);
+ int dialog_checklist(const char *title, const char *prompt, int height,
+ 		     int width, int list_height);
+ int dialog_inputbox(const char *title, const char *prompt, int height,
+diff --git a/scripts/kconfig/lxdialog/menubox.c b/scripts/kconfig/lxdialog/menubox.c
+index d4c19b7be..597b166e2 100644
+--- a/scripts/kconfig/lxdialog/menubox.c
++++ b/scripts/kconfig/lxdialog/menubox.c
+@@ -161,7 +161,7 @@ static void do_scroll(WINDOW *win, int *scroll, int n)
+  * Display a menu for choosing among a number of options
+  */
+ int dialog_menu(const char *title, const char *prompt,
+-		const void *selected, int *s_scroll)
++		const void *selected, int *s_scroll, bool sort)
+ {
+ 	int i, j, x, y, box_x, box_y;
+ 	int height, width, menu_height;
+@@ -181,6 +181,9 @@ int dialog_menu(const char *title, const char *prompt,
+ 
+ 	max_choice = MIN(menu_height, item_count());
+ 
++	if (sort)
++		sort_items();
++
+ 	/* center dialog box on screen */
+ 	x = (getmaxx(stdscr) - width) / 2;
+ 	y = (getmaxy(stdscr) - height) / 2;
+@@ -408,6 +411,8 @@ int dialog_menu(const char *title, const char *prompt,
+ 			delwin(menu);
+ 			delwin(dialog);
+ 			goto do_resize;
++		case '>':
++			return KEY_ACTION_SORT;
+ 		}
+ 	}
+ 	delwin(menu);
+diff --git a/scripts/kconfig/lxdialog/util.c b/scripts/kconfig/lxdialog/util.c
+index b34000beb..e8c8f09f1 100644
+--- a/scripts/kconfig/lxdialog/util.c
++++ b/scripts/kconfig/lxdialog/util.c
+@@ -562,6 +562,85 @@ void item_reset(void)
+ 	item_cur = &item_nil;
+ }
+ 
++/*
++ * Function skips a part of the label to get the actual label text
++ * (without the '[ ]'-like prefix).
++ */
++static char *skip_spec_characters(char *s)
++{
++	bool unbalanced = false;
++
++	while (*s) {
++		if (isalnum(*s) && !unbalanced) {
++			break;
++		} else if (*s == '[' || *s == '<' || *s == '(') {
++			/*
++			 * '[', '<' or '(' means that we need to look for
++			 * closure
++			 */
++			unbalanced = true;
++		} else if (*s == '-') {
++			/*
++			 * Labels could start with "-*-", so '-' here either
++			 * opens or closes the "checkbox"
++			 */
++			unbalanced = !unbalanced;
++		} else if (*s == '>' || *s == ']' || *s == ')') {
++			unbalanced = false;
++		}
++		s++;
++	}
++	return s;
++}
++
++static int compare_labels(const void *a, const void *b)
++{
++	struct dialog_list *el1 = *((struct dialog_list **)a);
++	struct dialog_list *el2 = *((struct dialog_list **)b);
++
++	return strcasecmp(skip_spec_characters(el1->node.str),
++			  skip_spec_characters(el2->node.str));
++}
++
++void sort_items(void)
++{
++	struct dialog_list **arr;
++	struct dialog_list *cur;
++	size_t n, i;
++
++	n = item_count();
++	if (n == 0)
++		return;
++
++	/* Copy all items from linked list into array */
++	cur = item_head;
++	arr = malloc(sizeof(*arr) * n);
++
++	if (!arr) {
++		/* Don't have enough memory, so don't do anything */
++		return;
++	}
++
++	for (i = 0; i < n; i++) {
++		arr[i] = cur;
++		cur = cur->next;
++	}
++
++	qsort(arr, n, sizeof(struct dialog_list *), compare_labels);
++
++	/* Restore the linked list structure from the sorted array */
++	for (i = 0; i < n; i++) {
++		if (i < n - 1)
++			arr[i]->next = arr[i + 1];
++		else
++			arr[i]->next = NULL;
++	}
++
++	item_head = arr[0];
++
++	free(arr);
++}
++
+ void item_make(const char *fmt, ...)
+ {
+ 	va_list ap;
+diff --git a/scripts/kconfig/mconf.c b/scripts/kconfig/mconf.c
+index b8b7bba84..eb0ea0e4d 100644
+--- a/scripts/kconfig/mconf.c
++++ b/scripts/kconfig/mconf.c
+@@ -751,6 +751,7 @@ static void conf_save(void)
+ 	}
+ }
+ 
++static bool should_sort;
+ static void conf(struct menu *menu, struct menu *active_menu)
+ {
+ 	struct menu *submenu;
+@@ -776,9 +777,15 @@ static void conf(struct menu *menu, struct menu *active_menu)
+ 		dialog_clear();
+ 		res = dialog_menu(prompt ? prompt : "Main Menu",
+ 				  menu_instructions,
+-				  active_menu, &s_scroll);
++				  active_menu, &s_scroll, should_sort);
+ 		if (res == 1 || res == KEY_ESC || res == -ERRDISPLAYTOOSMALL)
+ 			break;
++
++		if (res == KEY_ACTION_SORT) {
++			should_sort = !should_sort;
++			continue;
++		}
++
+ 		if (item_count() != 0) {
+ 			if (!item_activate_selected())
+ 				continue;
+diff --git a/scripts/sign-file.c b/scripts/sign-file.c
+index 7070245ed..540a11ce1 100644
+--- a/scripts/sign-file.c
++++ b/scripts/sign-file.c
+@@ -51,9 +51,10 @@
+  * signing with anything other than SHA1 - so we're stuck with that if such is
+  * the case.
+  */
+-#if defined(LIBRESSL_VERSION_NUMBER) || \
+-	OPENSSL_VERSION_NUMBER < 0x10000000L || \
+-	defined(OPENSSL_NO_CMS)
++#if defined(OPENSSL_NO_CMS) || \
++	( defined(LIBRESSL_VERSION_NUMBER) \
++	&& (LIBRESSL_VERSION_NUMBER < 0x3010000fL) ) || \
++	OPENSSL_VERSION_NUMBER < 0x10000000L
+ #define USE_PKCS7
+ #endif
+ #ifndef USE_PKCS7
+diff --git a/tools/lib/bpf/Makefile b/tools/lib/bpf/Makefile
+index 168140f8e..9563d3726 100644
+--- a/tools/lib/bpf/Makefile
++++ b/tools/lib/bpf/Makefile
+@@ -77,10 +77,15 @@ else
+   CFLAGS := -g -O2
+ endif
+ 
++# Treat warnings as errors unless directed not to
++ifneq ($(WERROR),0)
++  CFLAGS += -Werror
++endif
++
+ # Append required CFLAGS
+ override CFLAGS += -std=gnu89
+ override CFLAGS += $(EXTRA_WARNINGS) -Wno-switch-enum
+-override CFLAGS += -Werror -Wall
++override CFLAGS += -Wall
+ override CFLAGS += $(INCLUDES)
+ override CFLAGS += -fvisibility=hidden
+ override CFLAGS += -D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=64
+diff --git a/tools/lib/bpf/elf.c b/tools/lib/bpf/elf.c
+index 295dbda24..453b4223b 100644
+--- a/tools/lib/bpf/elf.c
++++ b/tools/lib/bpf/elf.c
+@@ -369,6 +369,11 @@ long elf_find_func_offset(Elf *elf, const char *binary_path, const char *name)
+ 	return ret;
+ }
+ 
++#if !defined(__clang__)
++#pragma GCC diagnostic push
++/* https://gcc.gnu.org/PR114952 */
++#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
++#endif
+ /* Find offset of function name in ELF object specified by path. "name" matches
+  * symbol name or name@@LIB for library functions.
+  */
+@@ -384,6 +389,9 @@ long elf_find_func_offset_from_file(const char *binary_path, const char *name)
+ 	elf_close(&elf_fd);
+ 	return ret;
+ }
++#if !defined(__clang__)
++#pragma GCC diagnostic pop
++#endif
+ 
+ struct symbol {
+ 	const char *name;
+-- 
+2.54.0
+

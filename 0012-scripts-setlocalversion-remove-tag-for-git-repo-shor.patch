@@ -1,0 +1,26 @@
+From a7d200105d204d57f189e21949e71ee1814dbdab Mon Sep 17 00:00:00 2001
+From: Salman Wahib <sxlmnwb.dev@gmail.com>
+Date: Tue, 26 May 2026 11:45:55 +0700
+Subject: [PATCH 12/12] scripts/setlocalversion: remove '+' tag for git repo
+ short version
+
+Signed-off-by: Salman Wahib <sxlmnwb.dev@gmail.com>
+---
+ scripts/setlocalversion | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/scripts/setlocalversion b/scripts/setlocalversion
+index 28169d7e1..6ce26e123 100755
+--- a/scripts/setlocalversion
++++ b/scripts/setlocalversion
+@@ -117,7 +117,6 @@ scm_version()
+ 		# If only the short version is requested, don't bother
+ 		# running further git commands
+ 		if $short; then
+-			echo "+"
+ 			return
+ 		fi
+ 
+-- 
+2.54.0
+
