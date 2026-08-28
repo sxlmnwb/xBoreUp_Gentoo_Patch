@@ -1,0 +1,90 @@
+From 5ba1f052695c001f3d5b752d4c860ccd3f5408b9 Mon Sep 17 00:00:00 2001
+From: Salman Wahib <sxlmnwb.dev@gmail.com>
+Date: Fri, 28 Aug 2026 10:42:58 +0700
+Subject: [PATCH 02/13] xboreup: (7.2) legacy collection patches
+
+* Bigger TCP write buffer for high-throughput
+  connections
+* Raise default socket receive/send buffer across
+  all sockets
+* Prevent yield spam in Proton/Wine games that
+  abuse sched_yield()
+* Prevent game crashes caused by VMA exhaustion
+
+Signed-off-by: Salman Wahib <sxlmnwb.dev@gmail.com>
+---
+ include/linux/mm.h      |  2 +-
+ include/net/sock.h      |  2 +-
+ kernel/sched/syscalls.c | 12 ++++++++++++
+ net/ipv4/tcp.c          |  2 +-
+ 4 files changed, 15 insertions(+), 3 deletions(-)
+
+diff --git a/include/linux/mm.h b/include/linux/mm.h
+index 485df9c2d..496c67117 100644
+--- a/include/linux/mm.h
++++ b/include/linux/mm.h
+@@ -205,7 +205,7 @@ static inline void __mm_zero_struct_page(struct page *page)
+  * that.
+  */
+ #define MAPCOUNT_ELF_CORE_MARGIN	(5)
+-#define DEFAULT_MAX_MAP_COUNT	(USHRT_MAX - MAPCOUNT_ELF_CORE_MARGIN)
++#define DEFAULT_MAX_MAP_COUNT	(INT_MAX - MAPCOUNT_ELF_CORE_MARGIN)
+ 
+ extern unsigned long sysctl_user_reserve_kbytes;
+ extern unsigned long sysctl_admin_reserve_kbytes;
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 51185222a..606a03fdb 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -3077,7 +3077,7 @@ void sk_get_meminfo(const struct sock *sk, u32 *meminfo);
+  * platforms.  This makes socket queueing behavior and performance
+  * not depend upon such differences.
+  */
+-#define _SK_MEM_PACKETS		256
++#define _SK_MEM_PACKETS		1024
+ #define _SK_MEM_OVERHEAD	SKB_TRUESIZE(256)
+ #define SK_WMEM_DEFAULT		(_SK_MEM_OVERHEAD * _SK_MEM_PACKETS)
+ #define SK_RMEM_DEFAULT		(_SK_MEM_OVERHEAD * _SK_MEM_PACKETS)
+diff --git a/kernel/sched/syscalls.c b/kernel/sched/syscalls.c
+index b215b0ead..a47e70232 100644
+--- a/kernel/sched/syscalls.c
++++ b/kernel/sched/syscalls.c
+@@ -1332,10 +1332,22 @@ SYSCALL_DEFINE3(sched_getaffinity, pid_t, pid, unsigned int, len,
+ 	return ret;
+ }
+ 
++static DEFINE_PER_CPU(unsigned long, last_yield);
++
+ static void do_sched_yield(void)
+ {
+ 	struct rq_flags rf;
+ 	struct rq *rq;
++	int cpu = raw_smp_processor_id();
++
++	cond_resched();
++
++	/* rate limit yielding to something sensible */
++
++	if (!time_after(jiffies, per_cpu(last_yield, cpu)))
++		return;
++
++	per_cpu(last_yield, cpu) = jiffies;
+ 
+ 	rq = this_rq_lock_irq(&rf);
+ 
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 455441f1b..2f7dd93cb 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -5360,7 +5360,7 @@ void __init tcp_init(void)
+ 	tcp_init_mem();
+ 	/* Set per-socket limits to no more than 1/128 the pressure threshold */
+ 	limit = nr_free_buffer_pages() << (PAGE_SHIFT - 7);
+-	max_wshare = min(4UL*1024*1024, limit);
++	max_wshare = min(16UL*1024*1024, limit);
+ 	max_rshare = min(32UL*1024*1024, limit);
+ 
+ 	init_net.ipv4.sysctl_tcp_wmem[0] = PAGE_SIZE;
+-- 
+2.54.0
+

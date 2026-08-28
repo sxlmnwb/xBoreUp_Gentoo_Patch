@@ -1,7 +1,7 @@
-From fc1b6970620e14bb9af5e066b001a819f864adb6 Mon Sep 17 00:00:00 2001
+From 97a542e5ce11d1160de718d4ec6ceeffcc93ff4c Mon Sep 17 00:00:00 2001
 From: Masahito S <firelzrd@gmail.com>
 Date: Fri, 5 Jun 2026 13:10:05 +0900
-Subject: [PATCH 07/12] cpuidle: add NAP Governor v0.5.0
+Subject: [PATCH 07/13] cpuidle: add NAP Governor v0.5.0
 
 Neural Adaptive Predictor (NAP) CPUIdle governor.
 Uses a per-CPU 16-16-10 MLP neural network running in-kernel
@@ -31,7 +31,7 @@ Signed-off-by: Salman Wahib <sxlmnwb.dev@gmail.com>
  create mode 100644 drivers/cpuidle/governors/nap/nap_nn_sse2.c
 
 diff --git a/drivers/cpuidle/Kconfig b/drivers/cpuidle/Kconfig
-index cac5997dc..9b6c50f0d 100644
+index d6d8386d3..491b7809f 100644
 --- a/drivers/cpuidle/Kconfig
 +++ b/drivers/cpuidle/Kconfig
 @@ -44,6 +44,23 @@ config CPU_IDLE_GOV_HALTPOLL

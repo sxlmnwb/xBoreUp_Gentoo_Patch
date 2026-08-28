@@ -1,7 +1,7 @@
-From 7360ecb66d7170cec55ec282c6980390a27c34b7 Mon Sep 17 00:00:00 2001
+From 69d6bb2e297681409f287821d62f6e5dfdf5a93a Mon Sep 17 00:00:00 2001
 From: Masahito S <firelzrd@gmail.com>
 Date: Mon, 27 Jul 2026 21:34:28 +0900
-Subject: [PATCH 09/12] sched: add Cambyses load balancer v0.6.0
+Subject: [PATCH 09/13] sched: add Cambyses load balancer v0.6.0
 
 Two sched_feat()-gated tweaks to CFS's detach_tasks():
 
@@ -15,7 +15,7 @@ Measured: p99 latency -6% to -9%, probe RPS +8% to +15%, no hog-side
 cost. Both default on, toggleable via sched/features.
 
 Source: https://github.com/firelzrd/cambyses
-Patch: 0001-6.12.74-cambyses-v0.6.0.patch
+Patch: 0001-7.2.0-rc4-cambyses-v0.6.0.patch
 
 Co-authored-by: Masahito S <firelzrd@gmail.com>
 Signed-off-by: Salman Wahib <sxlmnwb.dev@gmail.com>
@@ -25,20 +25,20 @@ Signed-off-by: Salman Wahib <sxlmnwb.dev@gmail.com>
  2 files changed, 181 insertions(+), 14 deletions(-)
 
 diff --git a/kernel/sched/fair.c b/kernel/sched/fair.c
-index d58f33d03..21df08703 100644
+index f74338526..afa7b8127 100644
 --- a/kernel/sched/fair.c
 +++ b/kernel/sched/fair.c
-@@ -9726,6 +9726,9 @@ enum migration_type {
- #define LBF_DST_PINNED  0x04
+@@ -10469,6 +10469,9 @@ enum migration_type {
  #define LBF_SOME_PINNED	0x08
  #define LBF_ACTIVE_LB	0x10
+ #define LBF_LLC_PINNED	0x20
 +/* This balance operation has detached at least one task. Sticky across the
 + * more_balance retries, so it reflects the whole operation, not one scan. */
-+#define LBF_MOVED	0x20
++#define LBF_MOVED	0x40
  
  struct lb_env {
  	struct sched_domain	*sd;
-@@ -10044,6 +10047,62 @@ static struct task_struct *detach_one_task(struct lb_env *env)
+@@ -11099,6 +11102,62 @@ static struct task_struct *detach_one_task(struct lb_env *env)
  	return NULL;
  }
  
@@ -101,7 +101,7 @@ index d58f33d03..21df08703 100644
  /*
   * detach_tasks() -- tries to detach up to imbalance load/util/tasks from
   * busiest_rq, as part of a balancing operation within domain "sd".
-@@ -10053,8 +10112,10 @@ static struct task_struct *detach_one_task(struct lb_env *env)
+@@ -11108,8 +11167,10 @@ static struct task_struct *detach_one_task(struct lb_env *env)
  static int detach_tasks(struct lb_env *env)
  {
  	struct list_head *tasks = &env->src_rq->cfs_tasks;
@@ -113,7 +113,7 @@ index d58f33d03..21df08703 100644
  	int detached = 0;
  
  	lockdep_assert_rq_held(env->src_rq);
-@@ -10071,27 +10132,49 @@ static int detach_tasks(struct lb_env *env)
+@@ -11126,27 +11187,49 @@ static int detach_tasks(struct lb_env *env)
  	if (env->imbalance <= 0)
  		return 0;
  
@@ -167,7 +167,7 @@ index d58f33d03..21df08703 100644
  
  		if (!can_migrate_task(p, env))
  			goto next;
-@@ -10111,13 +10194,8 @@ static int detach_tasks(struct lb_env *env)
+@@ -11166,13 +11249,8 @@ static int detach_tasks(struct lb_env *env)
  			    load < 16 && !env->sd->nr_balance_failed)
  				goto next;
  
@@ -183,7 +183,7 @@ index d58f33d03..21df08703 100644
  				goto next;
  
  			env->imbalance -= load;
-@@ -10126,7 +10204,7 @@ static int detach_tasks(struct lb_env *env)
+@@ -11181,7 +11259,7 @@ static int detach_tasks(struct lb_env *env)
  		case migrate_util:
  			util = task_util_est(p);
  
@@ -192,7 +192,7 @@ index d58f33d03..21df08703 100644
  				goto next;
  
  			env->imbalance -= util;
-@@ -10148,6 +10226,7 @@ static int detach_tasks(struct lb_env *env)
+@@ -11207,6 +11285,7 @@ static int detach_tasks(struct lb_env *env)
  		detach_task(p, env);
  		list_add(&p->se.group_node, &env->tasks);
  
@@ -200,7 +200,7 @@ index d58f33d03..21df08703 100644
  		detached++;
  
  #ifdef CONFIG_PREEMPTION
-@@ -10172,9 +10251,58 @@ static int detach_tasks(struct lb_env *env)
+@@ -11231,9 +11310,58 @@ static int detach_tasks(struct lb_env *env)
  		if (p->sched_task_hot)
  			schedstat_inc(p->stats.nr_failed_migrations_hot);
  
@@ -261,10 +261,10 @@ index d58f33d03..21df08703 100644
  	 * Right now, this is one of only two places we collect this stat
  	 * so we can safely collect detach_one_task() stats here rather
 diff --git a/kernel/sched/features.h b/kernel/sched/features.h
-index 659c0970c..030ee20b9 100644
+index 8f0dee8fc..814911ce9 100644
 --- a/kernel/sched/features.h
 +++ b/kernel/sched/features.h
-@@ -119,6 +119,45 @@ SCHED_FEAT(RT_RUNTIME_SHARE, false)
+@@ -126,6 +126,45 @@ SCHED_FEAT(RT_RUNTIME_SHARE, false)
  SCHED_FEAT(LB_MIN, false)
  SCHED_FEAT(ATTACH_AGE_LOAD, true)
  

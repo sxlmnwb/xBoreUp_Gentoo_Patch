@@ -1,0 +1,592 @@
+From 09107030779a3d1ef302ab105173924eb5fe1f1d Mon Sep 17 00:00:00 2001
+From: Salman Wahib <sxlmnwb.dev@gmail.com>
+Date: Fri, 28 Aug 2026 10:09:45 +0700
+Subject: [PATCH 01/13] gentoo: (7.2)
+ https://gitweb.gentoo.org/proj/linux-patches.git
+
+include:
+1510_fs-enable-link-security-restrictions-by-default.patch
+1700_sparc-address-warray-bound-warnings.patch
+1710_x86-tools-vdso2c.patch
+1730_parisc-Disable-prctl.patch
+2000_BT-Check-key-sizes-only-if-Secure-Simple-Pairing-enabled.patch
+2901_permit-menuconfig-sorting.patch
+2902_Replace-CONST-CAST-with-const-cast.patch
+2990_libbpf-v2-workaround-Wmaybe-uninitialized-false-pos.patch
+2991_libbpf_add_WERROR_option.patch
+3000_Support-printing-firmware-info.patch
+4567_distro-Gentoo-Kconfig.patch
+
+Co-authored-by: Mike Pagano <mpagano@gentoo.org>
+Signed-off-by: Salman Wahib <sxlmnwb.dev@gmail.com>
+---
+ Kconfig                             |   2 +
+ arch/sparc/mm/init_64.c             |   6 +-
+ arch/x86/tools/Makefile             |   5 +-
+ distro/Kconfig                      | 170 ++++++++++++++++++++++++++++
+ drivers/base/firmware_loader/main.c |   5 +
+ fs/namei.c                          |   8 +-
+ kernel/sys.c                        |  10 +-
+ net/bluetooth/hci_conn.c            |   9 +-
+ scripts/gcc-plugins/gcc-common.h    |   4 +-
+ scripts/kconfig/lxdialog/dialog.h   |   5 +-
+ scripts/kconfig/lxdialog/menubox.c  |   7 +-
+ scripts/kconfig/lxdialog/util.c     |  79 +++++++++++++
+ scripts/kconfig/mconf.c             |   9 +-
+ tools/lib/bpf/Makefile              |   7 +-
+ tools/lib/bpf/elf.c                 |   8 ++
+ 15 files changed, 315 insertions(+), 19 deletions(-)
+ create mode 100644 distro/Kconfig
+
+diff --git a/Kconfig b/Kconfig
+index 307e58114..91aa4be3d 100644
+--- a/Kconfig
++++ b/Kconfig
+@@ -32,3 +32,5 @@ source "lib/Kconfig.debug"
+ source "Documentation/Kconfig"
+ 
+ source "io_uring/Kconfig"
++
++source "distro/Kconfig"
+diff --git a/arch/sparc/mm/init_64.c b/arch/sparc/mm/init_64.c
+index 103db4683..291408208 100644
+--- a/arch/sparc/mm/init_64.c
++++ b/arch/sparc/mm/init_64.c
+@@ -3003,11 +3003,11 @@ static inline resource_size_t compute_kern_paddr(void *addr)
+ static void __init kernel_lds_init(void)
+ {
+ 	code_resource.start = compute_kern_paddr(_text);
+-	code_resource.end   = compute_kern_paddr(_etext - 1);
++	code_resource.end   = compute_kern_paddr(_etext) - 1;
+ 	data_resource.start = compute_kern_paddr(_etext);
+-	data_resource.end   = compute_kern_paddr(_edata - 1);
++	data_resource.end   = compute_kern_paddr(_edata) - 1;
+ 	bss_resource.start  = compute_kern_paddr(__bss_start);
+-	bss_resource.end    = compute_kern_paddr(_end - 1);
++	bss_resource.end    = compute_kern_paddr(_end) - 1;
+ }
+ 
+ static int __init report_memory(void)
+diff --git a/arch/x86/tools/Makefile b/arch/x86/tools/Makefile
+index 39a183fff..afd967bc4 100644
+--- a/arch/x86/tools/Makefile
++++ b/arch/x86/tools/Makefile
+@@ -38,8 +38,9 @@ $(obj)/insn_decoder_test.o: $(srctree)/tools/arch/x86/lib/insn.c $(srctree)/tool
+ 
+ $(obj)/insn_sanity.o: $(srctree)/tools/arch/x86/lib/insn.c $(srctree)/tools/arch/x86/lib/inat.c $(srctree)/tools/arch/x86/include/asm/inat_types.h $(srctree)/tools/arch/x86/include/asm/inat.h $(srctree)/tools/arch/x86/include/asm/insn.h $(objtree)/arch/x86/lib/inat-tables.c
+ 
+-HOST_EXTRACFLAGS += -I$(srctree)/tools/include -I$(srctree)/include/uapi \
+-		    -I$(srctree)/arch/$(SUBARCH)/include/uapi
++HOST_EXTRACFLAGS += -I$(srctree)/tools/include
++
++HOSTCFLAGS_vdso2c.o := -I$(srctree)/include/uapi -I$(srctree)/arch/$(SUBARCH)/include/uapi
+ 
+ hostprogs	+= relocs vdso2c
+ relocs-objs	:= relocs_32.o relocs_64.o relocs_common.o
+diff --git a/distro/Kconfig b/distro/Kconfig
+new file mode 100644
+index 000000000..a420a25f0
+--- /dev/null
++++ b/distro/Kconfig
+@@ -0,0 +1,170 @@
++menu "Gentoo Linux"
++
++config GENTOO_LINUX
++	bool "Gentoo Linux support"
++
++	default y
++
++	select CPU_FREQ_DEFAULT_GOV_SCHEDUTIL
++
++	help
++		In order to boot Gentoo Linux a minimal set of config settings needs to
++		be enabled in the kernel; to avoid the users from having to enable them
++		manually as part of a Gentoo Linux installation or a new clean config,
++		we enable these config settings by default for convenience.
++
++		See the settings that become available for more details and fine-tuning.
++
++config GENTOO_LINUX_UDEV
++	bool "Linux dynamic and persistent device naming (userspace devfs) support"
++
++	depends on GENTOO_LINUX
++	default y if GENTOO_LINUX
++
++	select DEVTMPFS
++	select TMPFS
++	select UNIX
++
++	select MMU
++	select SHMEM
++
++	help
++		In order to boot Gentoo Linux a minimal set of config settings needs to
++		be enabled in the kernel; to avoid the users from having to enable them
++		manually as part of a Gentoo Linux installation or a new clean config,
++		we enable these config settings by default for convenience.
++
++		Currently this only selects TMPFS, DEVTMPFS and their dependencies.
++		TMPFS is enabled to maintain a tmpfs file system at /dev/shm, /run and
++		/sys/fs/cgroup; DEVTMPFS to maintain a devtmpfs file system at /dev.
++
++		Some of these are critical files that need to be available early in the
++		boot process; if not available, it causes sysfs and udev to malfunction.
++
++		To ensure Gentoo Linux boots, it is best to leave this setting enabled;
++		if you run a custom setup, you could consider whether to disable this.
++
++config GENTOO_LINUX_PORTAGE
++	bool "Select options required by Portage features"
++
++	depends on GENTOO_LINUX
++	default y if GENTOO_LINUX
++
++	select CGROUPS
++	select NAMESPACES
++	select IPC_NS
++	select NET_NS
++	select PID_NS
++	select SYSVIPC
++	select USER_NS
++	select UTS_NS
++
++	help
++		This enables options required by various Portage FEATURES.
++		Currently this selects:
++
++		CGROUPS     (required for FEATURES=cgroup)
++		IPC_NS      (required for FEATURES=ipc-sandbox)
++		NET_NS      (required for FEATURES=network-sandbox)
++		PID_NS		(required for FEATURES=pid-sandbox)
++		SYSVIPC     (required by IPC_NS)
++   
++
++		It is highly recommended that you leave this enabled as these FEATURES
++		are, or will soon be, enabled by default.
++
++menu "Support for init systems, system and service managers"
++	visible if GENTOO_LINUX
++
++config GENTOO_LINUX_INIT_SCRIPT
++	bool "OpenRC, runit and other script based systems and managers"
++
++	default y if GENTOO_LINUX
++
++	depends on GENTOO_LINUX
++
++	select BINFMT_SCRIPT
++	select CGROUPS
++	select EPOLL
++	select FILE_LOCKING
++	select INOTIFY_USER
++	select SIGNALFD
++	select TIMERFD
++
++	help
++		The init system is the first thing that loads after the kernel booted.
++
++		These config settings allow you to select which init systems to support;
++		instead of having to select all the individual settings all over the
++		place, these settings allows you to select all the settings at once.
++
++		This particular setting enables all the known requirements for OpenRC,
++		runit and similar script based systems and managers.
++
++		If you are unsure about this, it is best to leave this setting enabled.
++
++config GENTOO_LINUX_INIT_SYSTEMD
++	bool "systemd"
++
++	default n
++
++	depends on GENTOO_LINUX && GENTOO_LINUX_UDEV
++
++	select AUTOFS_FS
++	select BLK_DEV_BSG if SCSI
++	select BPF_SYSCALL
++	select CGROUP_BPF
++	select CGROUPS
++	select DEVPTS_MULTIPLE_INSTANCES
++	select DMIID if X86_32 || X86_64 || X86
++	select EPOLL
++	select FANOTIFY
++	select FHANDLE
++	select FILE_LOCKING
++	select INOTIFY_USER
++	select IPV6
++	select KCMP
++	select NET
++	select NET_NS
++	select PROC_FS
++	select SECCOMP if HAVE_ARCH_SECCOMP
++	select SECCOMP_FILTER if HAVE_ARCH_SECCOMP_FILTER
++	select SIGNALFD
++	select SYSFS
++	select TIMERFD
++	select TMPFS_POSIX_ACL
++	select TMPFS_XATTR
++
++	select ANON_INODES
++	select BLOCK
++	select EVENTFD
++	select FSNOTIFY
++	select INET
++	select NLATTR
++
++	help
++		The init system is the first thing that loads after the kernel booted.
++
++		These config settings allow you to select which init systems to support;
++		instead of having to select all the individual settings all over the
++		place, these settings allows you to select all the settings at once.
++
++		This particular setting enables all the known requirements for systemd;
++		it also enables suggested optional settings, as the package suggests to.
++
++endmenu
++
++config GENTOO_PRINT_FIRMWARE_INFO
++	bool "Print firmware information that the kernel attempts to load"
++
++	depends on GENTOO_LINUX
++	default y
++
++	help
++		Enable this option to print information about firmware that the kernel
++		is attempting to load.  This information can be accessible via the
++		dmesg command-line utility
++
++		See the settings that become available for more details and fine-tuning.
++
++endmenu
+diff --git a/drivers/base/firmware_loader/main.c b/drivers/base/firmware_loader/main.c
+index 24213a0ea..16c4544e5 100644
+--- a/drivers/base/firmware_loader/main.c
++++ b/drivers/base/firmware_loader/main.c
+@@ -861,6 +861,11 @@ _request_firmware(const struct firmware **firmware_p, const char *name,
+ 
+ 	ret = _request_firmware_prepare(&fw, name, device, buf, size,
+ 					offset, opt_flags);
++
++#ifdef CONFIG_GENTOO_PRINT_FIRMWARE_INFO
++        printk(KERN_NOTICE "Loading firmware: %s\n", name);
++#endif
++
+ 	if (ret <= 0) /* error or already assigned */
+ 		goto out;
+ 
+diff --git a/fs/namei.c b/fs/namei.c
+index 19ce43c9a..c8ff292ee 100644
+--- a/fs/namei.c
++++ b/fs/namei.c
+@@ -1201,10 +1201,10 @@ static inline void put_link(struct nameidata *nd)
+ 		path_put(&last->link);
+ }
+ 
+-static int sysctl_protected_symlinks __read_mostly;
+-static int sysctl_protected_hardlinks __read_mostly;
+-static int sysctl_protected_fifos __read_mostly;
+-static int sysctl_protected_regular __read_mostly;
++static int sysctl_protected_symlinks __read_mostly = 1;
++static int sysctl_protected_hardlinks __read_mostly = 1;
++int sysctl_protected_fifos __read_mostly = 1;
++int sysctl_protected_regular __read_mostly = 1;
+ 
+ #ifdef CONFIG_SYSCTL
+ static const struct ctl_table namei_sysctls[] = {
+diff --git a/kernel/sys.c b/kernel/sys.c
+index df69bd71d..5e4951edb 100644
+--- a/kernel/sys.c
++++ b/kernel/sys.c
+@@ -2809,10 +2809,16 @@ SYSCALL_DEFINE5(prctl, int, option, unsigned long, arg2, unsigned long, arg3,
+ 		break;
+ #endif
+ 	case PR_SET_MDWE:
+-		error = prctl_set_mdwe(arg2, arg3, arg4, arg5);
++		if (IS_ENABLED(CONFIG_PARISC))
++			error = -EINVAL;
++		else
++			error = prctl_set_mdwe(arg2, arg3, arg4, arg5);
+ 		break;
+ 	case PR_GET_MDWE:
+-		error = prctl_get_mdwe(arg2, arg3, arg4, arg5);
++		if (IS_ENABLED(CONFIG_PARISC))
++			error = -EINVAL;
++		else
++			error = prctl_get_mdwe(arg2, arg3, arg4, arg5);
+ 		break;
+ 	case PR_PPC_GET_DEXCR:
+ 		if (arg3 || arg4 || arg5)
+diff --git a/net/bluetooth/hci_conn.c b/net/bluetooth/hci_conn.c
+index b1f911fd4..9fab554ab 100644
+--- a/net/bluetooth/hci_conn.c
++++ b/net/bluetooth/hci_conn.c
+@@ -2512,8 +2512,13 @@ int hci_conn_check_link_mode(struct hci_conn *conn)
+ 		return 0;
+ 	}
+ 
+-	if (hci_conn_ssp_enabled(conn) &&
+-	    !test_bit(HCI_CONN_ENCRYPT, &conn->flags))
++	/* If Secure Simple Pairing is not enabled, then legacy connection
++	 * setup is used and no encryption or key sizes can be enforced.
++	 */
++	if (!hci_conn_ssp_enabled(conn))
++		return 1;
++
++	if (!test_bit(HCI_CONN_ENCRYPT, &conn->flags))
+ 		return 0;
+ 
+ 	return 1;
+diff --git a/scripts/gcc-plugins/gcc-common.h b/scripts/gcc-plugins/gcc-common.h
+index abb1964c4..9c297dd4a 100644
+--- a/scripts/gcc-plugins/gcc-common.h
++++ b/scripts/gcc-plugins/gcc-common.h
+@@ -416,7 +416,7 @@ static inline void ipa_remove_stmt_references(symtab_node *referring_node, gimpl
+ #ifdef __cplusplus
+ static inline void debug_tree(const_tree t)
+ {
+-	debug_tree(CONST_CAST_TREE(t));
++  debug_tree(const_cast<tree>(t));
+ }
+ 
+ static inline void debug_gimple_stmt(const_gimple s)
+@@ -424,7 +424,7 @@ static inline void debug_gimple_stmt(const_gimple s)
+ 	debug_gimple_stmt(CONST_CAST_GIMPLE(s));
+ }
+ #else
+-#define debug_tree(t) debug_tree(CONST_CAST_TREE(t))
++#define debug_tree(t) debug_tree(const_cast<tree>(t))
+ #define debug_gimple_stmt(s) debug_gimple_stmt(CONST_CAST_GIMPLE(s))
+ #endif
+ 
+diff --git a/scripts/kconfig/lxdialog/dialog.h b/scripts/kconfig/lxdialog/dialog.h
+index f6c2ebe6d..a036ed8cb 100644
+--- a/scripts/kconfig/lxdialog/dialog.h
++++ b/scripts/kconfig/lxdialog/dialog.h
+@@ -58,6 +58,8 @@
+ #define ACS_DARROW 'v'
+ #endif
+ 
++#define KEY_ACTION_SORT 11
++
+ /* error return codes */
+ #define ERRDISPLAYTOOSMALL (KEY_MAX + 1)
+ 
+@@ -127,6 +129,7 @@ void item_set_selected(int val);
+ int item_activate_selected(void);
+ void *item_data(void);
+ char item_tag(void);
++void sort_items(void);
+ 
+ /* item list manipulation for lxdialog use */
+ #define MAXITEMSTR 200
+@@ -196,7 +199,7 @@ int dialog_textbox(const char *title, const char *tbuf, int initial_height,
+ 		   int initial_width, int *_vscroll, int *_hscroll,
+ 		   int (*extra_key_cb)(int, size_t, size_t, void *), void *data);
+ int dialog_menu(const char *title, const char *prompt,
+-		const void *selected, int *s_scroll);
++		const void *selected, int *s_scroll, bool sort);
+ int dialog_checklist(const char *title, const char *prompt, int height,
+ 		     int width, int list_height);
+ int dialog_inputbox(const char *title, const char *prompt, int height,
+diff --git a/scripts/kconfig/lxdialog/menubox.c b/scripts/kconfig/lxdialog/menubox.c
+index d4c19b7be..597b166e2 100644
+--- a/scripts/kconfig/lxdialog/menubox.c
++++ b/scripts/kconfig/lxdialog/menubox.c
+@@ -161,7 +161,7 @@ static void do_scroll(WINDOW *win, int *scroll, int n)
+  * Display a menu for choosing among a number of options
+  */
+ int dialog_menu(const char *title, const char *prompt,
+-		const void *selected, int *s_scroll)
++		const void *selected, int *s_scroll, bool sort)
+ {
+ 	int i, j, x, y, box_x, box_y;
+ 	int height, width, menu_height;
+@@ -181,6 +181,9 @@ int dialog_menu(const char *title, const char *prompt,
+ 
+ 	max_choice = MIN(menu_height, item_count());
+ 
++	if (sort)
++		sort_items();
++
+ 	/* center dialog box on screen */
+ 	x = (getmaxx(stdscr) - width) / 2;
+ 	y = (getmaxy(stdscr) - height) / 2;
+@@ -408,6 +411,8 @@ int dialog_menu(const char *title, const char *prompt,
+ 			delwin(menu);
+ 			delwin(dialog);
+ 			goto do_resize;
++		case '>':
++			return KEY_ACTION_SORT;
+ 		}
+ 	}
+ 	delwin(menu);
+diff --git a/scripts/kconfig/lxdialog/util.c b/scripts/kconfig/lxdialog/util.c
+index b34000beb..e8c8f09f1 100644
+--- a/scripts/kconfig/lxdialog/util.c
++++ b/scripts/kconfig/lxdialog/util.c
+@@ -562,6 +562,85 @@ void item_reset(void)
+ 	item_cur = &item_nil;
+ }
+ 
++/*
++ * Function skips a part of the label to get the actual label text
++ * (without the '[ ]'-like prefix).
++ */
++static char *skip_spec_characters(char *s)
++{
++	bool unbalanced = false;
++
++	while (*s) {
++		if (isalnum(*s) && !unbalanced) {
++			break;
++		} else if (*s == '[' || *s == '<' || *s == '(') {
++			/*
++			 * '[', '<' or '(' means that we need to look for
++			 * closure
++			 */
++			unbalanced = true;
++		} else if (*s == '-') {
++			/*
++			 * Labels could start with "-*-", so '-' here either
++			 * opens or closes the "checkbox"
++			 */
++			unbalanced = !unbalanced;
++		} else if (*s == '>' || *s == ']' || *s == ')') {
++			unbalanced = false;
++		}
++		s++;
++	}
++	return s;
++}
++
++static int compare_labels(const void *a, const void *b)
++{
++	struct dialog_list *el1 = *((struct dialog_list **)a);
++	struct dialog_list *el2 = *((struct dialog_list **)b);
++
++	return strcasecmp(skip_spec_characters(el1->node.str),
++			  skip_spec_characters(el2->node.str));
++}
++
++void sort_items(void)
++{
++	struct dialog_list **arr;
++	struct dialog_list *cur;
++	size_t n, i;
++
++	n = item_count();
++	if (n == 0)
++		return;
++
++	/* Copy all items from linked list into array */
++	cur = item_head;
++	arr = malloc(sizeof(*arr) * n);
++
++	if (!arr) {
++		/* Don't have enough memory, so don't do anything */
++		return;
++	}
++
++	for (i = 0; i < n; i++) {
++		arr[i] = cur;
++		cur = cur->next;
++	}
++
++	qsort(arr, n, sizeof(struct dialog_list *), compare_labels);
++
++	/* Restore the linked list structure from the sorted array */
++	for (i = 0; i < n; i++) {
++		if (i < n - 1)
++			arr[i]->next = arr[i + 1];
++		else
++			arr[i]->next = NULL;
++	}
++
++	item_head = arr[0];
++
++	free(arr);
++}
++
+ void item_make(const char *fmt, ...)
+ {
+ 	va_list ap;
+diff --git a/scripts/kconfig/mconf.c b/scripts/kconfig/mconf.c
+index b8b7bba84..eb0ea0e4d 100644
+--- a/scripts/kconfig/mconf.c
++++ b/scripts/kconfig/mconf.c
+@@ -751,6 +751,7 @@ static void conf_save(void)
+ 	}
+ }
+ 
++static bool should_sort;
+ static void conf(struct menu *menu, struct menu *active_menu)
+ {
+ 	struct menu *submenu;
+@@ -776,9 +777,15 @@ static void conf(struct menu *menu, struct menu *active_menu)
+ 		dialog_clear();
+ 		res = dialog_menu(prompt ? prompt : "Main Menu",
+ 				  menu_instructions,
+-				  active_menu, &s_scroll);
++				  active_menu, &s_scroll, should_sort);
+ 		if (res == 1 || res == KEY_ESC || res == -ERRDISPLAYTOOSMALL)
+ 			break;
++
++		if (res == KEY_ACTION_SORT) {
++			should_sort = !should_sort;
++			continue;
++		}
++
+ 		if (item_count() != 0) {
+ 			if (!item_activate_selected())
+ 				continue;
+diff --git a/tools/lib/bpf/Makefile b/tools/lib/bpf/Makefile
+index eca584fb0..1713dbb78 100644
+--- a/tools/lib/bpf/Makefile
++++ b/tools/lib/bpf/Makefile
+@@ -78,10 +78,15 @@ LIB_TARGET	= libbpf.a libbpf.so.$(LIBBPF_VERSION)
+ LIB_FILE	= libbpf.a libbpf.so*
+ PC_FILE		= libbpf.pc
+ 
++# Treat warnings as errors unless directed not to
++ifneq ($(WERROR),0)
++  CFLAGS += -Werror
++endif
++
+ # Append required CFLAGS
+ override CFLAGS += -std=gnu89
+ override CFLAGS += $(EXTRA_WARNINGS) -Wno-switch-enum
+-override CFLAGS += -Werror -Wall
++override CFLAGS += -Wall
+ override CFLAGS += $(INCLUDES)
+ override CFLAGS += -fvisibility=hidden
+ override CFLAGS += -D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=64
+diff --git a/tools/lib/bpf/elf.c b/tools/lib/bpf/elf.c
+index 295dbda24..453b4223b 100644
+--- a/tools/lib/bpf/elf.c
++++ b/tools/lib/bpf/elf.c
+@@ -369,6 +369,11 @@ long elf_find_func_offset(Elf *elf, const char *binary_path, const char *name)
+ 	return ret;
+ }
+ 
++#if !defined(__clang__)
++#pragma GCC diagnostic push
++/* https://gcc.gnu.org/PR114952 */
++#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
++#endif
+ /* Find offset of function name in ELF object specified by path. "name" matches
+  * symbol name or name@@LIB for library functions.
+  */
+@@ -384,6 +389,9 @@ long elf_find_func_offset_from_file(const char *binary_path, const char *name)
+ 	elf_close(&elf_fd);
+ 	return ret;
+ }
++#if !defined(__clang__)
++#pragma GCC diagnostic pop
++#endif
+ 
+ struct symbol {
+ 	const char *name;
+-- 
+2.54.0
+
