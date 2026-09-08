@@ -1,4 +1,4 @@
-From 69d6bb2e297681409f287821d62f6e5dfdf5a93a Mon Sep 17 00:00:00 2001
+From ad25981541fa49e40785b0c3359a61d336ab2f42 Mon Sep 17 00:00:00 2001
 From: Masahito S <firelzrd@gmail.com>
 Date: Mon, 27 Jul 2026 21:34:28 +0900
 Subject: [PATCH 09/13] sched: add Cambyses load balancer v0.6.0
@@ -311,5 +311,5 @@ index 8f0dee8fc..814911ce9 100644
  SCHED_FEAT(WA_WEIGHT, true)
  SCHED_FEAT(WA_BIAS, true)
 -- 
-2.54.0
+2.55.0
 

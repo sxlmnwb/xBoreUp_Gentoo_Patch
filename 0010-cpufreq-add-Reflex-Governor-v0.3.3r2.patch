@@ -1,4 +1,4 @@
-From 1082c7ed5aca4456a3ee99826414e0652ff8aed8 Mon Sep 17 00:00:00 2001
+From ad7a1ac2035b99022fd26b2d054541c2808239c6 Mon Sep 17 00:00:00 2001
 From: Masahito S <firelzrd@gmail.com>
 Date: Fri, 28 Aug 2026 11:43:13 +0700
 Subject: [PATCH 10/13] cpufreq: add Reflex Governor v0.3.3r2
@@ -1337,10 +1337,10 @@ index 742fb9e62..5abbe2f17 100644
  }
 +EXPORT_SYMBOL_GPL(cpufreq_this_cpu_can_update);
 diff --git a/kernel/sched/cpufreq_schedutil.c b/kernel/sched/cpufreq_schedutil.c
-index dff4ee046..9caf75c71 100644
+index 614ff0d33..db423cdb8 100644
 --- a/kernel/sched/cpufreq_schedutil.c
 +++ b/kernel/sched/cpufreq_schedutil.c
-@@ -948,3 +948,79 @@ bool sugov_is_governor(struct cpufreq_policy *policy)
+@@ -959,3 +959,79 @@ bool sugov_is_governor(struct cpufreq_policy *policy)
  }
  
  cpufreq_governor_init(schedutil_gov);
@@ -1433,5 +1433,5 @@ index 98a9cae91..914936827 100644
  static inline void tick_nohz_irq_enter(void)
  {
 -- 
-2.54.0
+2.55.0
 

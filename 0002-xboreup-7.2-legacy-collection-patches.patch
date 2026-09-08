@@ -1,4 +1,4 @@
-From 5ba1f052695c001f3d5b752d4c860ccd3f5408b9 Mon Sep 17 00:00:00 2001
+From 1636eb999022e9e475a51453966a684e35bfc9e2 Mon Sep 17 00:00:00 2001
 From: Salman Wahib <sxlmnwb.dev@gmail.com>
 Date: Fri, 28 Aug 2026 10:42:58 +0700
 Subject: [PATCH 02/13] xboreup: (7.2) legacy collection patches
@@ -86,5 +86,5 @@ index 455441f1b..2f7dd93cb 100644
  
  	init_net.ipv4.sysctl_tcp_wmem[0] = PAGE_SIZE;
 -- 
-2.54.0
+2.55.0
 

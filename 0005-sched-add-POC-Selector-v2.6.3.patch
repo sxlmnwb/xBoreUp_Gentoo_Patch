@@ -1,4 +1,4 @@
-From 6e692addf1cb9e789cc453fa10852e75f63265c5 Mon Sep 17 00:00:00 2001
+From ef518d512d00de0b027b090427b19fb785c4cdbd Mon Sep 17 00:00:00 2001
 From: Masahito S <firelzrd@gmail.com>
 Date: Wed, 29 Jul 2026 02:52:30 +0900
 Subject: [PATCH 05/13] sched: add POC Selector v2.6.3
@@ -106,10 +106,10 @@ index b086aa23a..69196510b 100644
  	bool "Kernel->user space relay support (formerly relayfs)"
  	select IRQ_WORK
 diff --git a/kernel/sched/ext/ext.c b/kernel/sched/ext/ext.c
-index 18183062f..e0132294b 100644
+index d7c4b62e7..4a11e8e98 100644
 --- a/kernel/sched/ext/ext.c
 +++ b/kernel/sched/ext/ext.c
-@@ -6236,6 +6236,9 @@ static void scx_root_disable(struct scx_sched *sch)
+@@ -6382,6 +6382,9 @@ static void scx_root_disable(struct scx_sched *sch)
  	mutex_unlock(&scx_enable_mutex);
  
  	WARN_ON_ONCE(scx_set_enable_state(SCX_DISABLED) != SCX_DISABLING);
@@ -119,7 +119,7 @@ index 18183062f..e0132294b 100644
  done:
  	scx_bypass(sch, false);
  }
-@@ -7450,6 +7453,10 @@ static void scx_root_enable_workfn(struct kthread_work *work)
+@@ -7596,6 +7599,10 @@ static void scx_root_enable_workfn(struct kthread_work *work)
  		}
  	}
  
@@ -2447,10 +2447,10 @@ index 000000000..d0f1a4532
 +#endif /* CONFIG_SYSFS */
 +#endif /* CONFIG_SCHED_POC_SELECTOR */
 diff --git a/kernel/sched/sched.h b/kernel/sched/sched.h
-index f16047a7e..6c2aa0820 100644
+index ef9db7330..77601c097 100644
 --- a/kernel/sched/sched.h
 +++ b/kernel/sched/sched.h
-@@ -1177,6 +1177,10 @@ struct rq {
+@@ -1179,6 +1179,10 @@ struct rq {
  	call_single_data_t	nohz_csd;
  #endif /* CONFIG_NO_HZ_COMMON */
  
@@ -2461,7 +2461,7 @@ index f16047a7e..6c2aa0820 100644
  #ifdef CONFIG_UCLAMP_TASK
  	/* Utilization clamp values based on CPU's RUNNABLE tasks */
  	struct uclamp_rq	uclamp[UCLAMP_CNT] ____cacheline_aligned;
-@@ -2375,6 +2379,119 @@ static inline struct task_group *task_group(struct task_struct *p)
+@@ -2378,6 +2382,119 @@ static inline struct task_group *task_group(struct task_struct *p)
  
  #endif /* !CONFIG_CGROUP_SCHED */
  
@@ -2581,7 +2581,7 @@ index f16047a7e..6c2aa0820 100644
  static inline void __set_task_cpu(struct task_struct *p, unsigned int cpu)
  {
  	set_task_rq(p, cpu);
-@@ -3458,6 +3575,7 @@ extern void nohz_run_idle_balance(int cpu);
+@@ -3461,6 +3578,7 @@ extern void nohz_run_idle_balance(int cpu);
  static inline void nohz_run_idle_balance(int cpu) { }
  #endif
  
@@ -2604,5 +2604,5 @@ index 622e2e019..339d505c8 100644
  			/*
  			 * In presence of higher domains, adjust the
 -- 
-2.54.0
+2.55.0
 

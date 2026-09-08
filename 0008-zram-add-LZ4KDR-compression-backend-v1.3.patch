@@ -1,4 +1,4 @@
-From 5a784b247175f4e2108527f716e53dae939b9a3c Mon Sep 17 00:00:00 2001
+From 9685f20d473d711352f261fb4837a45704ab2772 Mon Sep 17 00:00:00 2001
 From: Masahito S <firelzrd@gmail.com>
 Date: Sat, 25 Jul 2026 14:55:09 +0900
 Subject: [PATCH 08/13] zram: add LZ4KDR compression backend v1.3
@@ -1770,5 +1770,5 @@ index 000000000..ea824117b
 +
 +#endif /* _LIB_LZ4KDR_VERSION_H */
 -- 
-2.54.0
+2.55.0
 

@@ -1,4 +1,4 @@
-From 31a78b83535f077f29b8b8dd1fd72166c06d193b Mon Sep 17 00:00:00 2001
+From da4a12a0a801e7d665ca25603eed460b0bc9a922 Mon Sep 17 00:00:00 2001
 From: Masahito S <firelzrd@gmail.com>
 Date: Mon, 23 Feb 2026 05:16:37 +0900
 Subject: [PATCH 06/13] block: add ADIOS I/O Scheduler v3.2.0
@@ -2176,5 +2176,5 @@ index 2161b6eea..72a0dc6b3 100644
  }
  
 -- 
-2.54.0
+2.55.0
 

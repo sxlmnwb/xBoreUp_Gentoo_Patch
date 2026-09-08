@@ -1,4 +1,4 @@
-From 896ae1640eaba4127b25a5300b2dc8eeb5fca34d Mon Sep 17 00:00:00 2001
+From 3fbc9f04de421b0ed67b48020d3fef3b6b647843 Mon Sep 17 00:00:00 2001
 From: Masahito S <firelzrd@gmail.com>
 Date: Tue, 28 Jul 2026 23:17:12 +0900
 Subject: [PATCH 04/13] sched: add BORE Scheduler v6.8.0
@@ -766,7 +766,7 @@ index e2cf3b08d..aad225930 100644
  
  #ifdef CONFIG_CGROUP_CPUACCT
 diff --git a/kernel/sched/core.c b/kernel/sched/core.c
-index 96226707c..39afff862 100644
+index 145eea2d9..57139317c 100644
 --- a/kernel/sched/core.c
 +++ b/kernel/sched/core.c
 @@ -100,6 +100,10 @@
@@ -780,7 +780,7 @@ index 96226707c..39afff862 100644
  EXPORT_TRACEPOINT_SYMBOL_GPL(ipi_send_cpu);
  EXPORT_TRACEPOINT_SYMBOL_GPL(ipi_send_cpumask);
  
-@@ -1523,7 +1527,11 @@ int tg_nop(struct task_group *tg, void *data)
+@@ -1534,7 +1538,11 @@ int tg_nop(struct task_group *tg, void *data)
  
  void set_load_weight(struct task_struct *p, bool update_load)
  {
@@ -792,7 +792,7 @@ index 96226707c..39afff862 100644
  	struct load_weight lw;
  
  	if (task_has_idle_policy(p)) {
-@@ -8927,6 +8935,10 @@ void __init sched_init(void)
+@@ -8959,6 +8967,10 @@ void __init sched_init(void)
  	BUG_ON(!sched_class_above(&ext_sched_class, &idle_sched_class));
  #endif
  
@@ -1257,10 +1257,10 @@ index f15f57648..7ae69f916 100644
  	set_task_max_allowed_capacity(p);
  
 diff --git a/kernel/sched/sched.h b/kernel/sched/sched.h
-index 56acf502b..f16047a7e 100644
+index f76e6f7f4..ef9db7330 100644
 --- a/kernel/sched/sched.h
 +++ b/kernel/sched/sched.h
-@@ -2264,7 +2264,11 @@ extern int group_balance_cpu(struct sched_group *sg);
+@@ -2267,7 +2267,11 @@ extern int group_balance_cpu(struct sched_group *sg);
  extern void update_sched_domain_debugfs(void);
  extern void dirty_sched_domain_sysctl(int cpu);
  
@@ -1272,7 +1272,7 @@ index 56acf502b..f16047a7e 100644
  
  static inline const struct cpumask *task_user_cpus(struct task_struct *p)
  {
-@@ -3109,7 +3113,12 @@ static inline void attach_one_task(struct rq *rq, struct task_struct *p)
+@@ -3112,7 +3116,12 @@ static inline void attach_one_task(struct rq *rq, struct task_struct *p)
  extern __read_mostly unsigned int sysctl_sched_nr_migrate;
  extern __read_mostly unsigned int sysctl_sched_migration_cost;
  
@@ -1286,5 +1286,5 @@ index 56acf502b..f16047a7e 100644
  extern int sysctl_resched_latency_warn_ms;
  extern int sysctl_resched_latency_warn_once;
 -- 
-2.54.0
+2.55.0
 

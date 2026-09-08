@@ -1,4 +1,4 @@
-From 97a542e5ce11d1160de718d4ec6ceeffcc93ff4c Mon Sep 17 00:00:00 2001
+From 01c06dd1a47c3cc164b537e2e71368fafe468e85 Mon Sep 17 00:00:00 2001
 From: Masahito S <firelzrd@gmail.com>
 Date: Fri, 5 Jun 2026 13:10:05 +0900
 Subject: [PATCH 07/13] cpuidle: add NAP Governor v0.5.0
@@ -1842,5 +1842,5 @@ index 000000000..0f2a6f131
 +	}
 +}
 -- 
-2.54.0
+2.55.0
 

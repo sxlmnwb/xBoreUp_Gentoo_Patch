@@ -1,4 +1,4 @@
-From b8196cbebc3a719d9cae813c2f4890f94f55a0a1 Mon Sep 17 00:00:00 2001
+From 28c5d2cedf4ed3c8af74941f94f5b46a8fc81232 Mon Sep 17 00:00:00 2001
 From: David Morley <morleyd@google.com>
 Date: Fri, 26 Jun 2026 11:32:23 -0300
 Subject: [PATCH 03/13] tcp_bbr: v3: update TCP 'bbr' congestion control module
@@ -68,7 +68,7 @@ index 433c2df23..ce51146bd 100644
  
  #define ICSK_TIME_RETRANS	1	/* Retransmit timer */
 diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 2c5b88953..c146093f2 100644
+index 670c20876..74d2bde70 100644
 --- a/include/net/tcp.h
 +++ b/include/net/tcp.h
 @@ -428,6 +428,8 @@ static inline void tcp_dec_quickack_mode(struct sock *sk)
@@ -222,7 +222,7 @@ index 2c5b88953..c146093f2 100644
  /* These functions determine how the current flow behaves in respect of SACK
   * handling. SACK is negotiated with the peer, and therefore it can vary
   * between different flows.
-@@ -2658,7 +2713,7 @@ struct tcp_plb_state {
+@@ -2663,7 +2718,7 @@ struct tcp_plb_state {
  	u8	consec_cong_rounds:5, /* consecutive congested rounds */
  		unused:3;
  	u32	pause_until; /* jiffies32 when PLB can resume rerouting */
@@ -3246,7 +3246,7 @@ index 0f60a1dbf..3f210a7ae 100644
  	    tcp_in_quickack_mode(sk) ||
  	    /* Protocol state mandates a one-time immediate ACK */
 diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
-index 6ab3e3a0b..42698d6ba 100644
+index fb901b368..68b1ba85b 100644
 --- a/net/ipv4/tcp_minisocks.c
 +++ b/net/ipv4/tcp_minisocks.c
 @@ -500,6 +500,8 @@ void tcp_ca_openreq_child(struct sock *sk, const struct dst_entry *dst)
@@ -3259,7 +3259,7 @@ index 6ab3e3a0b..42698d6ba 100644
  		const struct tcp_congestion_ops *ca;
  
 diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index d7c1444b5..5ea1409c3 100644
+index 7b761edf8..eef961fd5 100644
 --- a/net/ipv4/tcp_output.c
 +++ b/net/ipv4/tcp_output.c
 @@ -365,7 +365,8 @@ static void tcp_ecn_send(struct sock *sk, struct sk_buff *skb,
@@ -3395,5 +3395,5 @@ index 4df1c9745..6ea7cb723 100644
  	event = icsk->icsk_pending;
  
 -- 
-2.54.0
+2.55.0
 
