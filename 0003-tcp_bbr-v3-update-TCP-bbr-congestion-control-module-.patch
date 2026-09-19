@@ -1,4 +1,4 @@
-From 28c5d2cedf4ed3c8af74941f94f5b46a8fc81232 Mon Sep 17 00:00:00 2001
+From dd94b32938c514e8f196077f2f7bb6ccb90196be Mon Sep 17 00:00:00 2001
 From: David Morley <morleyd@google.com>
 Date: Fri, 26 Jun 2026 11:32:23 -0300
 Subject: [PATCH 03/13] tcp_bbr: v3: update TCP 'bbr' congestion control module
@@ -378,7 +378,7 @@ index 791e15063..4f2c7bca2 100644
  	.undo_cwnd = bpf_tcp_ca_undo_cwnd,
  	.sndbuf_expand = bpf_tcp_ca_sndbuf_expand,
 diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 2f7dd93cb..a862b87e8 100644
+index f8a142643..d9145614d 100644
 --- a/net/ipv4/tcp.c
 +++ b/net/ipv4/tcp.c
 @@ -3483,6 +3483,7 @@ int tcp_disconnect(struct sock *sk, int flags)
@@ -3259,7 +3259,7 @@ index fb901b368..68b1ba85b 100644
  		const struct tcp_congestion_ops *ca;
  
 diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 7b761edf8..eef961fd5 100644
+index 8d243e917..f9733302f 100644
 --- a/net/ipv4/tcp_output.c
 +++ b/net/ipv4/tcp_output.c
 @@ -365,7 +365,8 @@ static void tcp_ecn_send(struct sock *sk, struct sk_buff *skb,
