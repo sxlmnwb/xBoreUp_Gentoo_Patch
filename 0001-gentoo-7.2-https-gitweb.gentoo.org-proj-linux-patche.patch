@@ -1,4 +1,4 @@
-From 81251998a58366aae8ec5c03627167a3657071cb Mon Sep 17 00:00:00 2001
+From 5b3581e4b47a8864c5c5e05b1ad2f6f49a9cb386 Mon Sep 17 00:00:00 2001
 From: Salman Wahib <sxlmnwb.dev@gmail.com>
 Date: Fri, 28 Aug 2026 10:09:45 +0700
 Subject: [PATCH 01/13] gentoo: (7.2)
@@ -295,7 +295,7 @@ index 19ce43c9a..c8ff292ee 100644
  #ifdef CONFIG_SYSCTL
  static const struct ctl_table namei_sysctls[] = {
 diff --git a/kernel/sys.c b/kernel/sys.c
-index df69bd71d..5e4951edb 100644
+index 35b538ba8..f97dc5f35 100644
 --- a/kernel/sys.c
 +++ b/kernel/sys.c
 @@ -2809,10 +2809,16 @@ SYSCALL_DEFINE5(prctl, int, option, unsigned long, arg2, unsigned long, arg3,
@@ -318,10 +318,10 @@ index df69bd71d..5e4951edb 100644
  	case PR_PPC_GET_DEXCR:
  		if (arg3 || arg4 || arg5)
 diff --git a/net/bluetooth/hci_conn.c b/net/bluetooth/hci_conn.c
-index 7e4d737a7..5c481d7a0 100644
+index 8de98af2f..0c0c0097b 100644
 --- a/net/bluetooth/hci_conn.c
 +++ b/net/bluetooth/hci_conn.c
-@@ -2513,8 +2513,13 @@ int hci_conn_check_link_mode(struct hci_conn *conn)
+@@ -2523,8 +2523,13 @@ int hci_conn_check_link_mode(struct hci_conn *conn)
  		return 0;
  	}
  
