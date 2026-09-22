@@ -1,4 +1,4 @@
-From 8df2a0892010193f1b6ecfea2acd2559216a9cdc Mon Sep 17 00:00:00 2001
+From d09d3b6133f74a383ccec4f7d9959d55f2c9e1f3 Mon Sep 17 00:00:00 2001
 From: Masahito S <firelzrd@gmail.com>
 Date: Mon, 27 Jul 2026 21:34:28 +0900
 Subject: [PATCH 09/13] sched: add Cambyses load balancer v0.6.0
@@ -25,10 +25,10 @@ Signed-off-by: Salman Wahib <sxlmnwb.dev@gmail.com>
  2 files changed, 181 insertions(+), 14 deletions(-)
 
 diff --git a/kernel/sched/fair.c b/kernel/sched/fair.c
-index 3b288ce51..c10ebfba1 100644
+index 6bab0acd9..1df7e3165 100644
 --- a/kernel/sched/fair.c
 +++ b/kernel/sched/fair.c
-@@ -10484,6 +10484,9 @@ enum migration_type {
+@@ -10492,6 +10492,9 @@ enum migration_type {
  #define LBF_SOME_PINNED	0x08
  #define LBF_ACTIVE_LB	0x10
  #define LBF_LLC_PINNED	0x20
@@ -38,7 +38,7 @@ index 3b288ce51..c10ebfba1 100644
  
  struct lb_env {
  	struct sched_domain	*sd;
-@@ -11114,6 +11117,62 @@ static struct task_struct *detach_one_task(struct lb_env *env)
+@@ -11122,6 +11125,62 @@ static struct task_struct *detach_one_task(struct lb_env *env)
  	return NULL;
  }
  
@@ -101,7 +101,7 @@ index 3b288ce51..c10ebfba1 100644
  /*
   * detach_tasks() -- tries to detach up to imbalance load/util/tasks from
   * busiest_rq, as part of a balancing operation within domain "sd".
-@@ -11123,8 +11182,10 @@ static struct task_struct *detach_one_task(struct lb_env *env)
+@@ -11131,8 +11190,10 @@ static struct task_struct *detach_one_task(struct lb_env *env)
  static int detach_tasks(struct lb_env *env)
  {
  	struct list_head *tasks = &env->src_rq->cfs_tasks;
@@ -113,7 +113,7 @@ index 3b288ce51..c10ebfba1 100644
  	int detached = 0;
  
  	lockdep_assert_rq_held(env->src_rq);
-@@ -11141,27 +11202,49 @@ static int detach_tasks(struct lb_env *env)
+@@ -11149,27 +11210,49 @@ static int detach_tasks(struct lb_env *env)
  	if (env->imbalance <= 0)
  		return 0;
  
@@ -167,7 +167,7 @@ index 3b288ce51..c10ebfba1 100644
  
  		if (!can_migrate_task(p, env))
  			goto next;
-@@ -11181,13 +11264,8 @@ static int detach_tasks(struct lb_env *env)
+@@ -11189,13 +11272,8 @@ static int detach_tasks(struct lb_env *env)
  			    load < 16 && !env->sd->nr_balance_failed)
  				goto next;
  
@@ -183,7 +183,7 @@ index 3b288ce51..c10ebfba1 100644
  				goto next;
  
  			env->imbalance -= load;
-@@ -11196,7 +11274,7 @@ static int detach_tasks(struct lb_env *env)
+@@ -11204,7 +11282,7 @@ static int detach_tasks(struct lb_env *env)
  		case migrate_util:
  			util = task_util_est(p);
  
@@ -192,7 +192,7 @@ index 3b288ce51..c10ebfba1 100644
  				goto next;
  
  			env->imbalance -= util;
-@@ -11222,6 +11300,7 @@ static int detach_tasks(struct lb_env *env)
+@@ -11230,6 +11308,7 @@ static int detach_tasks(struct lb_env *env)
  		detach_task(p, env);
  		list_add(&p->se.group_node, &env->tasks);
  
@@ -200,7 +200,7 @@ index 3b288ce51..c10ebfba1 100644
  		detached++;
  
  #ifdef CONFIG_PREEMPTION
-@@ -11246,9 +11325,58 @@ static int detach_tasks(struct lb_env *env)
+@@ -11254,9 +11333,58 @@ static int detach_tasks(struct lb_env *env)
  		if (p->sched_task_hot)
  			schedstat_inc(p->stats.nr_failed_migrations_hot);
  

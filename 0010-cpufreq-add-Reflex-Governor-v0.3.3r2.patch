@@ -1,4 +1,4 @@
-From 8c08d554076c8b8a2e27ceff56c1f9fb518be56c Mon Sep 17 00:00:00 2001
+From bd5a6c949750f0c73f191d2f3abb21fa231e9b98 Mon Sep 17 00:00:00 2001
 From: Masahito S <firelzrd@gmail.com>
 Date: Fri, 28 Aug 2026 11:43:13 +0700
 Subject: [PATCH 10/13] cpufreq: add Reflex Governor v0.3.3r2
@@ -100,7 +100,7 @@ index 6c7a39b7f..8e461d110 100644
  obj-$(CONFIG_CPUFREQ_DT)		+= cpufreq-dt.o
  obj-$(CONFIG_CPUFREQ_DT_RUST)		+= rcpufreq_dt.o
 diff --git a/drivers/cpufreq/cpufreq.c b/drivers/cpufreq/cpufreq.c
-index b898b6544..29682b98e 100644
+index 196c50f26..28ac4199d 100644
 --- a/drivers/cpufreq/cpufreq.c
 +++ b/drivers/cpufreq/cpufreq.c
 @@ -2045,6 +2045,7 @@ bool cpufreq_driver_test_flags(u16 flags)

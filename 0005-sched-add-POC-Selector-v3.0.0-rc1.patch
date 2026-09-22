@@ -1,34 +1,34 @@
-From 89de0434646775b162484a7adfe801f16d37d84a Mon Sep 17 00:00:00 2001
+From ec6a264cc795f4bfcadd1008d7b2bad0bf70bf9b Mon Sep 17 00:00:00 2001
 From: Masahito S <firelzrd@gmail.com>
-Date: Wed, 29 Jul 2026 02:52:30 +0900
-Subject: [PATCH 05/13] sched: add POC Selector v2.6.3
+Date: Sun, 20 Sep 2026 12:13:39 +0900
+Subject: [PATCH 05/13] sched: add POC Selector v3.0.0-rc1
 
 Piece-Of-Cake (POC) O(1) Idle CPU Selector for select_idle_cpu() hot path.
 Uses per-LLC atomic64_t bitmaps with lock-free reads for O(1) idle CPU discovery,
 replacing the default O(n) linear scan.
 
 Source: https://github.com/firelzrd/poc-selector
-Patch: 0001-7.2-rc1-poc-selector-v2.6.3.patch
+Patch: 0001-7.2-rc1-poc-selector-v3.0.0-rc1.patch
 
 Co-authored-by: Masahito S <firelzrd@gmail.com>
 Signed-off-by: Salman Wahib <sxlmnwb.dev@gmail.com>
 ---
- include/linux/sched/topology.h |   46 +
+ include/linux/sched/topology.h |   31 +
  init/Kconfig                   |   13 +
  kernel/sched/ext/ext.c         |    7 +
  kernel/sched/fair.c            |  159 ++-
  kernel/sched/idle.c            |   10 +
- kernel/sched/poc_selector.c    | 2038 ++++++++++++++++++++++++++++++++
- kernel/sched/sched.h           |  118 ++
+ kernel/sched/poc_selector.c    | 2092 ++++++++++++++++++++++++++++++++
+ kernel/sched/sched.h           |  121 ++
  kernel/sched/topology.c        |    3 +
- 8 files changed, 2358 insertions(+), 36 deletions(-)
+ 8 files changed, 2400 insertions(+), 36 deletions(-)
  create mode 100644 kernel/sched/poc_selector.c
 
 diff --git a/include/linux/sched/topology.h b/include/linux/sched/topology.h
-index b5d9d7c2b..2d939fa46 100644
+index b5d9d7c2b..b2e3732f3 100644
 --- a/include/linux/sched/topology.h
 +++ b/include/linux/sched/topology.h
-@@ -86,6 +86,52 @@ struct sched_domain_shared {
+@@ -86,6 +86,37 @@ struct sched_domain_shared {
  	unsigned long	util_avg;
  	unsigned long	capacity;
  #endif
@@ -47,27 +47,12 @@ index b5d9d7c2b..2d939fa46 100644
 +#endif
 +
 +	/*
-+	 * Hot write path: idle state flag arrays (lock-free mode).
-+	 * Each array = exactly 1 cache line (64B).
-+	 * Writers: WRITE_ONCE (plain MOV, no LOCK prefix).
-+	 * Readers: snapshot to stack, then multiply-and-shift aggregation.
-+	 * Active only when sched_poc_atomic_bitmap=0.
++	 * Lazy commit: reader-facing busy mask + pending bits.
++	 * Readers: single atomic64_read (MOV on x86); idle = ~busy.
++	 * Writers: atomic_or / atomic64_set on the shared cacheline.
 +	 */
-+	u8		poc_idle_cpus[64] ____cacheline_aligned;
-+#ifdef CONFIG_SCHED_SMT
-+	u8		poc_idle_cores[64] ____cacheline_aligned;
-+#endif /* CONFIG_SCHED_SMT */
-+
-+	/*
-+	 * Hot read/write path: idle state bitmaps (bitmap mode, default).
-+	 * Readers: single atomic64_read (MOV on x86).
-+	 * Writers: atomic64_or / atomic64_andnot (LOCK'd on x86).
-+	 * Active only when sched_poc_atomic_bitmap=1.
-+	 */
-+	atomic64_t	poc_idle_cpus_mask ____cacheline_aligned;
-+#ifdef CONFIG_SCHED_SMT
-+	atomic64_t	poc_idle_cores_mask ____cacheline_aligned;
-+#endif /* CONFIG_SCHED_SMT */
++	atomic64_t	poc_busy_mask ____cacheline_aligned;
++	atomic_t	poc_pending[8] ____cacheline_aligned;	/* 8 chunks x 8 LLC CPUs */
 +
 +	/*
 +	 * Read-only lookup tables (written once at init).
@@ -106,7 +91,7 @@ index b086aa23a..69196510b 100644
  	bool "Kernel->user space relay support (formerly relayfs)"
  	select IRQ_WORK
 diff --git a/kernel/sched/ext/ext.c b/kernel/sched/ext/ext.c
-index 558be0cde..47aacbfbd 100644
+index 548f46a42..6ec5a6fb3 100644
 --- a/kernel/sched/ext/ext.c
 +++ b/kernel/sched/ext/ext.c
 @@ -6363,6 +6363,9 @@ static void scx_root_disable(struct scx_sched *sch)
@@ -131,7 +116,7 @@ index 558be0cde..47aacbfbd 100644
  		sch->ops.name, scx_switched_all() ? "" : " (partial)");
  	kobject_uevent(&sch->kobj, KOBJ_ADD);
 diff --git a/kernel/sched/fair.c b/kernel/sched/fair.c
-index 2c24029c0..3b288ce51 100644
+index 0af5f4d00..6bab0acd9 100644
 --- a/kernel/sched/fair.c
 +++ b/kernel/sched/fair.c
 @@ -49,6 +49,7 @@
@@ -142,7 +127,7 @@ index 2c24029c0..3b288ce51 100644
  
  #include <asm/switch_to.h>
  
-@@ -1302,7 +1303,7 @@ static bool update_deadline(struct cfs_rq *cfs_rq, struct sched_entity *se)
+@@ -1312,7 +1313,7 @@ static bool update_deadline(struct cfs_rq *cfs_rq, struct sched_entity *se)
  
  #include "pelt.h"
  
@@ -151,7 +136,7 @@ index 2c24029c0..3b288ce51 100644
  static unsigned long task_h_load(struct task_struct *p);
  static unsigned long capacity_of(int cpu);
  
-@@ -8588,6 +8589,20 @@ void __update_idle_core(struct rq *rq)
+@@ -8596,6 +8597,20 @@ void __update_idle_core(struct rq *rq)
  	rcu_read_unlock();
  }
  
@@ -172,7 +157,7 @@ index 2c24029c0..3b288ce51 100644
  /*
   * Scan the entire LLC domain for idle cores; this dynamically switches off if
   * there are no idle cores left in the system; tracked through
-@@ -8915,16 +8930,38 @@ static inline bool asym_fits_cpu(unsigned long util,
+@@ -8923,16 +8938,38 @@ static inline bool asym_fits_cpu(unsigned long util,
  	return true;
  }
  
@@ -212,7 +197,7 @@ index 2c24029c0..3b288ce51 100644
  	/*
  	 * On asymmetric system, update task utilization because we will check
  	 * that the task fits with CPU's capacity.
-@@ -8941,23 +8978,13 @@ static int select_idle_sibling(struct task_struct *p, int prev, int target)
+@@ -8949,23 +8986,13 @@ static int select_idle_sibling(struct task_struct *p, int prev, int target)
  	 */
  	lockdep_assert_irqs_disabled();
  
@@ -241,7 +226,7 @@ index 2c24029c0..3b288ce51 100644
  
  	/*
  	 * Allow a per-cpu kthread to stack with the wakee if the
-@@ -8975,24 +9002,6 @@ static int select_idle_sibling(struct task_struct *p, int prev, int target)
+@@ -8983,24 +9010,6 @@ static int select_idle_sibling(struct task_struct *p, int prev, int target)
  		return prev;
  	}
  
@@ -266,7 +251,7 @@ index 2c24029c0..3b288ce51 100644
  	/*
  	 * For asymmetric CPU capacity systems, our domain of interest is
  	 * sd_asym_cpucapacity rather than sd_llc.
-@@ -9017,6 +9026,74 @@ static int select_idle_sibling(struct task_struct *p, int prev, int target)
+@@ -9025,6 +9034,74 @@ static int select_idle_sibling(struct task_struct *p, int prev, int target)
  	if (!sd)
  		return target;
  
@@ -279,7 +264,7 @@ index 2c24029c0..3b288ce51 100644
 +				&& sd_share && likely(sd_share->poc_fast_eligible)) {
 +			int poc_cpu = select_idle_cpu_poc(target, prev,
 +					recent_used_cpu, sync,
-+					sd_share, p->cpus_ptr);
++					sd_share, p, p->cpus_ptr);
 +			if (poc_cpu >= 0) {
 +				return poc_cpu;
 +			}
@@ -341,7 +326,7 @@ index 2c24029c0..3b288ce51 100644
  	if (sched_smt_active()) {
  		has_idle_core = test_idle_cores(target);
  
-@@ -9031,6 +9108,9 @@ static int select_idle_sibling(struct task_struct *p, int prev, int target)
+@@ -9039,6 +9116,9 @@ static int select_idle_sibling(struct task_struct *p, int prev, int target)
  	if ((unsigned)i < nr_cpumask_bits)
  		return i;
  
@@ -351,7 +336,7 @@ index 2c24029c0..3b288ce51 100644
  	/*
  	 * For cluster machines which have lower sharing cache like L2 or
  	 * LLC Tag, we tend to find an idle CPU in the target's cluster
-@@ -9042,6 +9122,13 @@ static int select_idle_sibling(struct task_struct *p, int prev, int target)
+@@ -9050,6 +9130,13 @@ static int select_idle_sibling(struct task_struct *p, int prev, int target)
  	if ((unsigned int)recent_used_cpu < nr_cpumask_bits)
  		return recent_used_cpu;
  
@@ -365,7 +350,7 @@ index 2c24029c0..3b288ce51 100644
  	return target;
  }
  
-@@ -9724,7 +9811,7 @@ select_task_rq_fair(struct task_struct *p, int prev_cpu, int wake_flags)
+@@ -9732,7 +9819,7 @@ select_task_rq_fair(struct task_struct *p, int prev_cpu, int wake_flags)
  
  	/* Fast path */
  	if (wake_flags & WF_TTWU)
@@ -404,10 +389,10 @@ index 052435f4d..d4d77f281 100644
  	 * be set, propagate it into PREEMPT_NEED_RESCHED.
 diff --git a/kernel/sched/poc_selector.c b/kernel/sched/poc_selector.c
 new file mode 100644
-index 000000000..d0f1a4532
+index 000000000..def00ec7d
 --- /dev/null
 +++ b/kernel/sched/poc_selector.c
-@@ -0,0 +1,2038 @@
+@@ -0,0 +1,2092 @@
 +// SPDX-License-Identifier: GPL-2.0
 +/*
 + * Piece-Of-Cake (POC) CPU Selector
@@ -460,7 +445,7 @@ index 000000000..d0f1a4532
 +#define SCHED_POC_SELECTOR_AUTHOR   "Masahito Suzuki"
 +#define SCHED_POC_SELECTOR_PROGNAME "Piece-Of-Cake (POC) CPU Selector"
 +
-+#define SCHED_POC_SELECTOR_VERSION  "2.6.3"
++#define SCHED_POC_SELECTOR_VERSION  "3.0.0-rc1"
 +
 +/**************************************************************
 + * Static keys:
@@ -523,8 +508,8 @@ index 000000000..d0f1a4532
 + * This covers both consecutive (stride=1) and stride-N (e.g., Intel
 + * Xeon) layouts without write-path overhead.
 + *
-+ * When false (>2-way SMT or non-uniform topology), falls back to
-+ * write-time maintenance of poc_idle_cores_mask atomic64_t.
++ * When false (>2-way SMT or non-uniform topology), falls back to the
++ * tier-3 read-time derivation from the per-CPU SMT sibling masks.
 + *
 + * Disabled at boot if any LLC contains non-2-way or non-uniform SMT.
 + */
@@ -632,26 +617,14 @@ index 000000000..d0f1a4532
 +DEFINE_STATIC_KEY_TRUE(sched_poc_rr_improved);
 +
 +/*
-+ * Lockless bitmap mode: sched_poc_lockless_bitmap
-+ * (sysctl kernel.sched_poc_lockless_bitmap)
++ * Waker-yield handoff static key (sysctl kernel.sched_poc_waker_yield).
 + *
-+ * When enabled, idle state is tracked in u8[64] flag arrays.
-+ * Writers use plain WRITE_ONCE (no LOCK prefix); readers snapshot
-+ * the 64-byte cache line to the stack, then use multiply-and-shift
-+ * aggregation to assemble a u64 bitmask.
-+ *
-+ * When disabled (default), idle state is tracked in atomic64_t bitmaps.
-+ * Readers use a single atomic64_read (MOV on x86); writers use
-+ * atomic64_or / atomic64_andnot (LOCK'd on x86).
-+ *
-+ * Only one representation is maintained at a time (single-write).
-+ * Switching via sysctl resyncs the newly-active representation
-+ * before readers can observe it.
-+ *
-+ * Default: disabled.
++ * The waker's CPU will be free within microseconds after the wake
++ * (the waker blocks or exits right after it).  When enabled, such a
++ * wake places the wakee on the waker's own CPU: zero follow-on
++ * migration, warm L1/L2/TLB.  Default on: A/B-able.
 + */
-+DEFINE_STATIC_KEY_FALSE(sched_poc_lockless_bitmap);
-+
++DEFINE_STATIC_KEY_TRUE(sched_poc_waker_yield);
 +/**************************************************************
 + * Debug counters (sysctl kernel.sched_poc_count):
 + *
@@ -856,76 +829,6 @@ index 000000000..d0f1a4532
 +#endif /* POC_PTSELECT */
 +
 +/**************************************************************
-+ * Flag array to bitmask conversion (lock-free mode):
-+ */
-+
-+/*
-+ * POC_BYTE_EXTRACT / POC_BYTE_PACK - constants for multiply-and-shift trick.
-+ *
-+ * Isolates bit 0 of each byte in a u64 word, then packs the 8 bits
-+ * into the most significant byte via multiply.
-+ */
-+#define POC_BYTE_EXTRACT 0x0101010101010101ULL
-+#define POC_BYTE_PACK    0x0102040810204080ULL
-+
-+/*
-+ * POC_BMP8 - Convert one 8-byte slice of the flag array to 8 packed bits.
-+ *
-+ *   Tier 1 (x86-64 + BMI2, excluding AMD Zen 1/2 slow microcode PEXT):
-+ *     PEXT extracts bit 0 of each byte directly into 8 contiguous bits.
-+ *     Single instruction replaces AND + MUL + SHR.
-+ *
-+ *   Tier 2 (fallback): Multiply-and-shift trick.
-+ *     Isolates bit 0 of each byte (AND), packs via MUL, shifts to position.
-+ */
-+#if defined(__x86_64__) && defined(__BMI2__) && \
-+    !defined(__znver1) && !defined(__znver2)
-+
-+static __always_inline u64 poc_bmp8_pext(u64 word, int i)
-+{
-+	u64 extracted;
-+
-+	asm("pext %2, %1, %0" : "=r"(extracted) : "r"(word), "r"(POC_BYTE_EXTRACT));
-+	return extracted << (i * 8);
-+}
-+#define POC_BMP8(w, i) poc_bmp8_pext((w)[i], i)
-+
-+#else
-+
-+#define POC_BMP8(w, i) \
-+	((((w)[i] & POC_BYTE_EXTRACT) * POC_BYTE_PACK >> 56) << ((i) * 8))
-+
-+#endif /* POC_BMP8 */
-+
-+/*
-+ * poc_flags_to_u64 - Convert u8[64] flag array to u64 bitmask
-+ * @flags: pointer to 64-byte flag array (cacheline-aligned)
-+ *
-+ * Phase 1 (memcpy): snapshot the 64-byte cache line to the stack.
-+ * This eliminates the window in which a concurrent MESI invalidation
-+ * could cause a re-fetch mid-computation.  All 64 bytes land in one
-+ * or two cache line transfers; subsequent computation is purely local.
-+ *
-+ * Phase 2: pack the stack-local copy into a u64 bitmask via
-+ * multiply-and-shift (or PEXT on BMI2 x86).  Always processes all
-+ * 8 chunks — the extra iterations for small LLCs are negligible
-+ * on stack-local data and avoid the poc_chunks_bit* dispatch tree.
-+ *
-+ * Returns: u64 bitmask with bit N set iff flags[N] != 0
-+ */
-+static __always_inline u64 poc_flags_to_u64(const u8 *flags)
-+{
-+	u64 w[8];
-+
-+	/* Phase 1: snapshot shared cache line to stack */
-+	memcpy(w, flags, 64);
-+
-+	/* Phase 2: pack stack-local copy into bitmask */
-+	return POC_BMP8(w, 0) | POC_BMP8(w, 1) | POC_BMP8(w, 2) | POC_BMP8(w, 3) |
-+	       POC_BMP8(w, 4) | POC_BMP8(w, 5) | POC_BMP8(w, 6) | POC_BMP8(w, 7);
-+}
-+
-+/**************************************************************
 + * Idle mask accessors:
 + */
 +
@@ -937,21 +840,18 @@ index 000000000..d0f1a4532
 + * Returns a snapshot of idle CPUs within this LLC, masked by
 + * llc_members (valid CPUs) and @affinity (task placement).
 + *
-+ * bitmap mode (default): single atomic64_read (MOV on x86).
-+ * flag array mode: stack-snapshot + multiply-and-shift aggregation.
++ * Lazy commit: one atomic64_read of the shared busy mask; the idle
++ * CPU set is the complement of the busy mask.
 + */
 +static __always_inline u64 poc_idle_cpu_mask(u64 affinity,
 +	struct sched_domain_shared *sd_share)
 +{
-+	u64 cpus;
-+
-+	if (static_branch_unlikely(&sched_poc_lockless_bitmap))
-+		cpus = poc_flags_to_u64(sd_share->poc_idle_cpus);
-+	else
-+		cpus = (u64)atomic64_read(&sd_share->poc_idle_cpus_mask);
++	/* lazy commit: idle = ~busy (busy mask re-derived at select time) */
++	u64 cpus = ~(u64)atomic64_read(&sd_share->poc_busy_mask);
 +
 +	return cpus & sd_share->poc_llc_members & affinity;
 +}
++
 +
 +#ifdef CONFIG_SCHED_SMT
 +/*
@@ -972,9 +872,9 @@ index 000000000..d0f1a4532
 + *   Two extra loads (poc_smt_shift, poc_primary_mask) from sd_share,
 + *   but no write-path overhead.
 + *
-+ *   Tier 3 (exotic: >2-way SMT or non-uniform topology): reads the
-+ *   separately-maintained poc_idle_cores_mask atomic64_t.  Write path
-+ *   maintains this bitmap on every idle transition.
++ *   Tier 3 (exotic: >2-way SMT or non-uniform topology): derives the
++ *   idle-core mask at read time from the per-CPU SMT sibling masks
++ *   (poc_smt_mask[]), testing each idle CPU for a fully idle core.
 + */
 +static __always_inline u64 poc_idle_core_mask(u64 cpu_mask,
 +	struct sched_domain_shared *sd_share)
@@ -988,30 +888,110 @@ index 000000000..d0f1a4532
 +		return cpu_mask & (cpu_mask >> sd_share->poc_smt_shift)
 +				& sd_share->poc_primary_mask;
 +
-+	/* Tier 3: exotic — bitmap or flag array based on mode */
-+	if (static_branch_unlikely(&sched_poc_lockless_bitmap))
-+		return poc_flags_to_u64(sd_share->poc_idle_cores) & cpu_mask;
++	/* Tier 3: exotic - derive idle cores from the per-CPU SMT sibling masks */
++	u64 cores = 0;
++	u64 t = cpu_mask;
 +
-+	return (u64)atomic64_read(&sd_share->poc_idle_cores_mask) & cpu_mask;
++	while (t) {
++		int b = POC_CTZ64(t);
++
++		if ((cpu_mask & sd_share->poc_smt_mask[b]) ==
++				sd_share->poc_smt_mask[b])
++			cores |= 1ULL << b;
++		t &= t - 1;
++	}
++	return cores;
 +}
 +#endif /* CONFIG_SCHED_SMT */
 +
 +/*
-+ * __set_cpu_idle_state_poc - Update idle state in atomic64_t bitmap
++ * poc_aggregate - Re-derive the shared busy mask at select time
++ *
++ * For every CPU whose pending bit is set, pull the CPU-local busy
++ * bit (a pre-shifted u64, plain load) and OR it into the busy mask;
++ * CPUs with a clear pending bit are unchanged since the last
++ * aggregation and are skipped.  The result is written back with a
++ * plain atomic64_set (idempotent under concurrent aggregators) and
++ * only the consumed snapshot bits are cleared with andnot - a busy
++ * transition racing the clear keeps its bit.
++ *
++ * Writer ordering: local store, then the atomic64_or (full barrier);
++ * on the reader side smp_mb__after_atomic() after reading the pending
++ * mask ensures the pulled stores are visible.
++ */
++/*
++ * MSHR budget for the aggregation pull phase.
++ *
++ * Each pull is one remote cache-line read (cpu_rq->poc_busy_bit). A
++ * burst of pulls can saturate the pulling CPU's L2 MSHRs and evict
++ * its own in-flight loads; cap the pulls per aggregation and leave
++ * the excess pending bits for the next aggregation. Set once from
++ * the microarchitecture's L2 MSHR count (using half of it):
++ * Zen4/Zen5: 32 -> 16, Zen3/Intel: 24 -> 12, other: 8.
++ */
++unsigned int poc_pull_budget __read_mostly = 8;
++
++void poc_aggregate(struct sched_domain_shared *sd_share)
++{
++	u64 busy;
++	int i, pulled;
++	unsigned s;
++
++	/* Prefetch phase: walk the pending chunks, stop at the MSHR budget */
++	pulled = 0;
++	for (i = 0; i < 8 && (unsigned)pulled < poc_pull_budget; i++) {
++		s = (unsigned)atomic_read(&sd_share->poc_pending[i]);
++		while (s) {
++			int b = POC_CTZ64(s);
++			int cpu = sd_share->poc_cpu_base + (i * 8) + b;
++
++			if (cpu < nr_cpu_ids && cpu_online(cpu))
++				prefetch(cpu_rq(cpu));
++			pulled++;
++			s &= s - 1;
++		}
++	}
++	if (!pulled)
++		return;
++
++	smp_mb__after_atomic();
++
++	/*
++	 * Pull phase: re-read the chunks, re-derive at most
++	 * poc_pull_budget local bits.  Excess pending bits stay set and
++	 * are pulled by the next aggregation.  Each cleared bit uses
++	 * andnot so a busy transition racing the clear keeps its bit.
++	 */
++	busy = (u64)atomic64_read(&sd_share->poc_busy_mask);
++	pulled = 0;
++	for (i = 0; i < 8 && (unsigned)pulled < poc_pull_budget; i++) {
++		s = (unsigned)atomic_read(&sd_share->poc_pending[i]);
++		while (s && (unsigned)pulled < poc_pull_budget) {
++			int b = POC_CTZ64(s);
++			int cpu = sd_share->poc_cpu_base + (i * 8) + b;
++
++			if (cpu < nr_cpu_ids && cpu_online(cpu)) {
++				busy &= ~(1ULL << ((i * 8) + b));
++				busy |= READ_ONCE(cpu_rq(cpu)->poc_busy_bit);
++				pulled++;
++			}
++			atomic_and((int)~(1u << b), &sd_share->poc_pending[i]);
++			s &= s - 1;
++		}
++	}
++	busy &= sd_share->poc_llc_members;
++	atomic64_set(&sd_share->poc_busy_mask, busy);
++}
++/*
++ * __set_cpu_idle_state_poc - Publish an idle-state transition (lazy commit)
 + * @cpu: CPU number
 + * @state: 0=busy, 1=idle
 + *
-+ * Updates the atomic64_t cpus bitmap via atomic64_or/andnot (LOCK'd on x86).
-+ *
-+ * On uniform 2-way SMT (Tier 1 & 2: consecutive or stride-N), only
-+ * the cpus state is updated; core idle state is derived at read time
-+ * via bit-parallel operations.
-+ *
-+ * On exotic SMT (Tier 3: >2-way or non-uniform), also maintains the
-+ * separate cores state (bitmap or flag array) for O(1) read-time lookup.
-+ *
-+ * Only one representation is maintained at a time (single-write),
-+ * selected by sched_poc_lockless_bitmap.
++ * The CPU-local busy bit (rq->poc_busy_bit) is updated first, then the
++ * transition is published through the per-LLC pending mask; the shared
++ * busy mask is re-derived at select time by poc_aggregate().  If a waker
++ * already committed this CPU as busy at select time, the state is
++ * published and the pending RMW is skipped.
 + *
 + * Caller (inline wrapper in sched.h) ensures poc_selector_active is on
 + * and sched_asym_cpucap_active() is false before calling here.
@@ -1019,96 +999,29 @@ index 000000000..d0f1a4532
 +void __set_cpu_idle_state_poc(int cpu, int state)
 +{
 +	struct rq *rq = cpu_rq(cpu);
-+	if (!static_branch_unlikely(&sched_poc_lockless_bitmap) &&
-+			!state && READ_ONCE(rq->poc_idle_committed))
-+		return;
++	/* Lazy commit path: local busy bit + pending publish (commit-skip) */
++	u64 bm = 0;
++	int bit = 0;
++	struct sched_domain_shared *sd_share;
 +
 +	guard(rcu)();
-+	struct sched_domain_shared *sd_share =
-+		rcu_dereference(per_cpu(sd_llc_shared, cpu));
-+	if (!sd_share || !sd_share->poc_fast_eligible)
++	sd_share = rcu_dereference(per_cpu(sd_llc_shared, cpu));
++	if (sd_share && sd_share->poc_fast_eligible)
++		bit = cpu - sd_share->poc_cpu_base;
++	if (bit >= 0 && bit < 64)
++		bm = 1ULL << bit;
++	WRITE_ONCE(rq->poc_busy_bit, state > 0 ? 0 : bm);
++	if (state > 0 || !sd_share || !sd_share->poc_fast_eligible)
 +		return;
-+
-+	int bit = cpu - sd_share->poc_cpu_base;
-+	u64 bit_mask = 1ULL << bit;
-+
-+	if (static_branch_unlikely(&sched_poc_lockless_bitmap)) {
-+		WRITE_ONCE(sd_share->poc_idle_cpus[bit], state > 0 ? 1 : 0);
-+	} else if (state > 0) {
-+		/* Entering idle: clear any stale committed flag */
-+		WRITE_ONCE(rq->poc_idle_committed, 0);
-+		atomic64_or(bit_mask, &sd_share->poc_idle_cpus_mask);
-+	} else {
-+		/*
-+		 * Exiting idle: if a waker already committed (cleared the
-+		 * bitmap bit), skip the redundant atomic on the shared
-+		 * cacheline.  The flag lives in rq's first cacheline —
-+		 * same line the waker already dirtied via ttwu_pending.
-+		 */
-+		atomic64_andnot(bit_mask, &sd_share->poc_idle_cpus_mask);
-+		WRITE_ONCE(rq->poc_idle_committed, 1);
-+	}
-+
-+#ifdef CONFIG_SCHED_SMT
-+	if (sched_smt_active()) {
-+		/* Tier 1 & 2: read-time derivation, no write-path cost */
-+		if (static_branch_likely(&sched_poc_smt_uniform))
-+			return;
-+		/*
-+		 * Tier 3 (exotic SMT): maintain separate cores state.
-+		 * Check whether all SMT siblings are idle.
-+		 */
-+		u64 smt = sd_share->poc_smt_mask[bit];
-+		u64 core_bitmask = smt & (-smt); /* core representative */
-+		int core_bit = __builtin_ctzll(core_bitmask);
-+		bool core_idle;
-+
-+		if (static_branch_unlikely(&sched_poc_lockless_bitmap)) {
-+			/*
-+			 * Flag array mode: check siblings via WRITE_ONCE-stored
-+			 * flags.  smp_wmb() ensures our store to poc_idle_cpus[]
-+			 * is visible before we read sibling flags.
-+			 * On x86 TSO: compiler barrier only (~0 cyc).
-+			 * On ARM64: dmb ishst.
-+			 */
-+			smp_wmb();
-+			u64 tmp = smt;
-+
-+			core_idle = state > 0;
-+			while (core_idle && tmp) {
-+				int s = __builtin_ctzll(tmp);
-+
-+				if (!READ_ONCE(sd_share->poc_idle_cpus[s]))
-+					core_idle = false;
-+				tmp &= tmp - 1;
-+			}
-+			WRITE_ONCE(sd_share->poc_idle_cores[core_bit],
-+				   core_idle ? 1 : 0);
-+		} else {
-+			/*
-+			 * smp_mb__after_atomic() ensures our atomic store is
-+			 * visible before we read sibling bits.  On x86 TSO this
-+			 * is a compiler barrier (~0 cyc); on ARM64: dmb ish.
-+			 */
-+			smp_mb__after_atomic();
-+			u64 cpus = (u64)atomic64_read(&sd_share->poc_idle_cpus_mask);
-+			core_idle = (cpus & smt) == smt;
-+			u64 cores = (u64)atomic64_read(&sd_share->poc_idle_cores_mask);
-+
-+			if (core_idle) {
-+				if (!(cores & core_bitmask))
-+					atomic64_or(core_bitmask,
-+						    &sd_share->poc_idle_cores_mask);
-+			} else {
-+				if (cores & core_bitmask)
-+					atomic64_andnot(core_bitmask,
-+							&sd_share->poc_idle_cores_mask);
-+			}
-+		}
-+	}
-+#endif /* CONFIG_SCHED_SMT */
++	/*
++	 * If a waker already committed this CPU as busy in the shared
++	 * busy mask (select-time commit), the state is published -
++	 * skip the pending RMW entirely.
++	 */
++	if ((u64)atomic64_read(&sd_share->poc_busy_mask) & bm)
++		return;
++	atomic_or(1 << (bit & 7), &sd_share->poc_pending[bit >> 3]);
 +}
-+
 +/**************************************************************
 + * Idle CPU selection helpers:
 + */
@@ -1312,7 +1225,7 @@ index 000000000..d0f1a4532
 + * @cpu: the CPU number selected by POC
 + * @sd_share: per-LLC shared data
 + *
-+ * Clears the selected CPU's bit in poc_idle_cpus_mask at selection
++ * Marks the selected CPU as taken in the shared state at selection
 + * time to close the race window where multiple waker CPUs read the
 + * same stale bitmap and select the same idle CPU.  The do_idle()
 + * exit path performs an idempotent clear as a safety net for
@@ -1325,15 +1238,10 @@ index 000000000..d0f1a4532
 +	if (cpu_rq(cpu)->nr_running <= 2) {
 +		int bit = cpu - sd_share->poc_cpu_base;
 +
-+		if (static_branch_unlikely(&sched_poc_lockless_bitmap)) {
-+			WRITE_ONCE(sd_share->poc_idle_cpus[bit], 0);
-+			smp_wmb();
-+		} else {
-+			atomic64_andnot(1ULL << bit, &sd_share->poc_idle_cpus_mask);
-+			smp_mb__after_atomic();
-+			/* Mark committed so target skips redundant andnot on wakeup */
-+			WRITE_ONCE(cpu_rq(cpu)->poc_idle_committed, 1);
-+		}
++		/* lazy commit: mark the selected CPU busy in the busy mask */
++		atomic64_or(1ULL << bit, &sd_share->poc_busy_mask);
++		smp_mb__after_atomic();
++		WRITE_ONCE(cpu_rq(cpu)->poc_idle_committed, 1);
 +	}
 +}
 +
@@ -1412,12 +1320,43 @@ index 000000000..d0f1a4532
 + * Returns: idle CPU number if found, -1 if not found (CFS may retry),
 + *          -2 if SIS_UTIL overload (caller should skip CFS)
 + */
++
++/*
++ * poc_waker_yield_siblings_ok - waker-yield SMT safety: every SMT sibling of
++ * the waker CPU must be idle (running the idle thread), or have at
++ * most the wakee p as its only queued task (p is mid-handoff from
++ * that CPU; it leaves immediately, so the core is free when p
++ * arrives).
++ */
++static __always_inline bool
++poc_waker_yield_siblings_ok(struct sched_domain_shared *sd_share, int tgt_bit,
++				struct task_struct *p)
++{
++	u64 t = sd_share->poc_smt_mask[tgt_bit] & ~(1ULL << tgt_bit);
++
++	while (t) {
++		int b = POC_CTZ64(t);
++		struct rq *rq = cpu_rq(sd_share->poc_cpu_base + b);
++
++		if (rq->nr_running > 1)
++			return false;
++		if (rq->curr != rq->idle && rq->curr != p)
++			return false;
++		t &= t - 1;
++	}
++	return true;
++}
++
 +static __always_inline int select_idle_cpu_poc(int target, int prev,
 +				int recent, int sync,
 +				struct sched_domain_shared *sd_share,
-+				const struct cpumask *allowed)
++				struct task_struct *p,
++	const struct cpumask *allowed)
 +{
 +	int base = sd_share->poc_cpu_base;
++
++	/* lazy commit: refresh the shared busy mask from pending transitions */
++	poc_aggregate(sd_share);
 +	int rct_bit = recent - base;
 +	int tgt_bit = target - base;
 +	int prv_bit = prev   - base;
@@ -1436,17 +1375,10 @@ index 000000000..d0f1a4532
 +		return -1;
 +#endif
 +
-+	if (static_branch_unlikely(&sched_poc_lockless_bitmap))
-+		prefetch(sd_share->poc_idle_cpus);
-+	else
-+		prefetch(&sd_share->poc_idle_cpus_mask);
++	prefetch(&sd_share->poc_busy_mask);
 +#ifdef CONFIG_SCHED_SMT
 +	if (sched_smt_active()) {
 +		if (!static_branch_likely(&sched_poc_smt_uniform)) {
-+			if (static_branch_unlikely(&sched_poc_lockless_bitmap))
-+				prefetch(sd_share->poc_idle_cores);
-+			else
-+				prefetch(&sd_share->poc_idle_cores_mask);
 +			if (POC_CPU_VALID(recent))
 +				prefetch(&sd_share->poc_smt_mask[rct_bit]);
 +			prefetch(&sd_share->poc_smt_mask[tgt_bit]);
@@ -1459,6 +1391,32 @@ index 000000000..d0f1a4532
 +
 +	affinity = poc_cpumask_to_u64(allowed, sd_share);
 +	cpu_mask = poc_idle_cpu_mask(affinity, sd_share);
++
++
++	/*
++	 * Waker-yield handoff (sysctl kernel.sched_poc_waker_yield).
++	 *
++	 * The probe runs on the waker's CPU (non-preemptible ttwu context),
++	 * so smp_processor_id() is the waker.  If the waker is the only
++	 * runnable task on its CPU (nr_running <= 1) and its SMT siblings
++	 * are free, its CPU will be free within microseconds (the waker
++	 * blocks or exits right after the wake).  Place the wakee there:
++	 * zero follow-on migration, and the wakee inherits the waker's
++	 * hot L1/L2/TLB.  Triggered for any ttwu (pipe/fork/signal); no
++	 * WF_SYNC flag needed.
++	 */
++	{
++		int waker_cpu = smp_processor_id();
++		int wbit = waker_cpu - base;
++
++		if (wbit >= 0 && wbit < 64 &&
++			static_branch_likely(&sched_poc_waker_yield) &&
++			(affinity & (1ULL << wbit)) &&
++			cpu_rq(waker_cpu)->nr_running <= 1 &&
++			(!sched_smt_active() || sync ||
++				poc_waker_yield_siblings_ok(sd_share, wbit, p)))
++			POC_RETURN(waker_cpu, POC_LV4S);
++	}
 +
 +	/* Level 0: Saturation — no idle CPU */
 +	if (!cpu_mask)
@@ -1619,6 +1577,38 @@ index 000000000..d0f1a4532
 +	struct cpumask *sd_span = sched_domain_span(sd);
 +	int range = cpumask_last(sd_span) - sd_id + 1;
 +
++	/* One-time: MSHR pull budget from the boot CPU's microarchitecture */
++	{
++		static bool poc_budget_init_done;
++
++		if (!poc_budget_init_done) {
++			poc_budget_init_done = true;
++			switch (boot_cpu_data.x86) {
++			case 0x1a:	/* Zen4/5: L2 MSHR ~32 */
++				poc_pull_budget = 16;
++				break;
++			case 0x19:	/* Zen3: L2 MSHR ~24 */
++				poc_pull_budget = 12;
++				break;
++			case 0x17:	/* Zen1/2: L2 MSHR ~20 */
++				poc_pull_budget = 10;
++				break;
++			case 0x15:	/* Excavator: L2 MSHR ~12 */
++				poc_pull_budget = 6;
++				break;
++			case 0x06:	/* Intel */
++				if (boot_cpu_data.x86_model >= 0x4e)
++					poc_pull_budget = 12;	/* Skylake+: MSHR 24+ */
++				else
++					poc_pull_budget = 4;	/* pre-Skylake: MSHR <= 16 */
++				break;
++			default:	/* unknown: minimal MSHR */
++				poc_pull_budget = 4;
++				break;
++			}
++		}
++	}
++
 +	sd->shared->poc_cpu_base = sd_id;
 +	sd->shared->poc_affinity_shift = sd_id & 63;
 +
@@ -1640,14 +1630,6 @@ index 000000000..d0f1a4532
 +		sd->shared->poc_fast_eligible = false;
 +		static_branch_disable_cpuslocked(&sched_poc_packed);
 +	}
-+	memset(sd->shared->poc_idle_cpus, 0,
-+	       sizeof(sd->shared->poc_idle_cpus));
-+	atomic64_set(&sd->shared->poc_idle_cpus_mask, 0);
-+#ifdef CONFIG_SCHED_SMT
-+	memset(sd->shared->poc_idle_cores, 0,
-+	       sizeof(sd->shared->poc_idle_cores));
-+	atomic64_set(&sd->shared->poc_idle_cores_mask, 0);
-+#endif
 +
 +	/* Build LLC member bitmask for reader-side aggregation */
 +	{
@@ -1657,10 +1639,33 @@ index 000000000..d0f1a4532
 +		for_each_cpu(cpu_iter, sd_span) {
 +			int bit = cpu_iter - sd_id;
 +
-+			if ((unsigned int)bit < 64)
++			if ((unsigned int)bit < 64) {
 +				members |= 1ULL << bit;
++				/*
++				 * Exact initial state from the idle_cpu() snapshot.  The
++				 * lazy commit mode only converges from an exact start:
++				 * an all-busy start plus the commit-skip check would
++				 * publish nothing and pin the busy mask all-busy.
++				 */
++				cpu_rq(cpu_iter)->poc_busy_bit =
++					idle_cpu(cpu_iter) ? 0ULL : (1ULL << bit);
++			}
 +		}
 +		sd->shared->poc_llc_members = members;
++		{
++			u64 busy = 0;
++			u64 t = members;
++
++			while (t) {
++				int b = POC_CTZ64(t);
++
++				busy |= cpu_rq(sd_id + b)->poc_busy_bit;
++				t &= t - 1;
++			}
++		atomic64_set(&sd->shared->poc_busy_mask, busy);
++		}
++		for (int pi = 0; pi < 8; pi++)
++			atomic_set(&sd->shared->poc_pending[pi], 0);
 +	}
 +
 +#ifdef CONFIG_SCHED_SMT
@@ -1705,8 +1710,8 @@ index 000000000..d0f1a4532
 +	 *     derivation without write-path overhead.
 +	 *
 +	 *   Tier 3 (exotic): >2-way SMT, non-uniform topology,
-+	 *     or mixed SMT ways.  Falls back to write-time
-+	 *     maintenance of poc_idle_cores_mask atomic64_t.
++	 *     or mixed SMT ways.  Falls back to read-time
++	 *     derivation from the per-CPU SMT sibling masks.
 +	 *
 +	 * On pure non-SMT systems, the key values are irrelevant
 +	 * because sched_smt_active() gates all SMT paths.
@@ -1848,23 +1853,64 @@ index 000000000..d0f1a4532
 + *
 + * When POC is re-enabled after a period of being disabled,
 + * the idle bitmaps may be stale.  Walk all online CPUs and push
-+ * the current idle state into poc_idle_cpus_mask (and poc_idle_cores_mask
-+ * on non-consecutive SMT).
++ * the current idle state into the shared lazy commit state (busy mask +
++ * per-CPU busy bits).
 + *
 + * Must be called AFTER static_branch_enable() so that concurrent
 + * idle transitions are also updating the flags.
 + * Caller must hold cpus_read_lock().
 + */
++static void poc_rebuild_all_llcs_busy(void)
++{
++	int cpu;
++
++	for_each_online_cpu(cpu) {
++		struct sched_domain_shared *sd_share;
++		int base;
++		u64 members, busy = 0;
++
++		guard(rcu)();
++		sd_share = rcu_dereference(per_cpu(sd_llc_shared, cpu));
++		if (!sd_share)
++			continue;
++		base = sd_share->poc_cpu_base;
++		members = sd_share->poc_llc_members;
++		while (members) {
++			int b = POC_CTZ64(members);
++			int c = base + b;
++
++			if (c < nr_cpu_ids && cpu_online(c))
++				busy |= READ_ONCE(cpu_rq(c)->poc_busy_bit);
++			members &= members - 1;
++		}
++		atomic64_set(&sd_share->poc_busy_mask, busy);
++		for (int pi = 0; pi < 8; pi++)
++			atomic_set(&sd_share->poc_pending[pi], 0);
++	}
++}
++
 +static void poc_resync_idle_state(void)
 +{
 +	int cpu;
 +
 +	for_each_online_cpu(cpu) {
-+		WRITE_ONCE(cpu_rq(cpu)->poc_idle_committed, 0);
-+		__set_cpu_idle_state_poc(cpu, idle_cpu(cpu));
-+	}
-+}
++		struct rq *rq = cpu_rq(cpu);
++		struct sched_domain_shared *sd_share;
 +
++		WRITE_ONCE(rq->poc_idle_committed, 0);
++
++		guard(rcu)();
++		sd_share = rcu_dereference(per_cpu(sd_llc_shared, cpu));
++		if (sd_share) {
++			int bit = cpu - sd_share->poc_cpu_base;
++
++			if (bit >= 0 && bit < 64)
++				WRITE_ONCE(rq->poc_busy_bit,
++						idle_cpu(cpu) ? 0ULL : (1ULL << bit));
++		}
++	}
++	poc_rebuild_all_llcs_busy();
++}
 +/*
 + * poc_reevaluate_active - Recompute poc_selector_active from inputs
 + *
@@ -2095,11 +2141,11 @@ index 000000000..d0f1a4532
 +	return ret;
 +}
 +
-+static int sched_poc_lockless_bitmap_sysctl_handler(const struct ctl_table *table,
-+						int write, void *buffer,
-+						size_t *lenp, loff_t *ppos)
++static int sched_poc_waker_yield_handler(const struct ctl_table *table,
++                                         int write, void *buffer,
++                                         size_t *lenp, loff_t *ppos)
 +{
-+	unsigned int val = static_branch_unlikely(&sched_poc_lockless_bitmap) ? 1 : 0;
++	unsigned int val = static_branch_likely(&sched_poc_waker_yield) ? 1 : 0;
 +	struct ctl_table tmp = {
 +		.data    = &val,
 +		.maxlen  = sizeof(val),
@@ -2109,17 +2155,10 @@ index 000000000..d0f1a4532
 +	int ret = proc_douintvec_minmax(&tmp, write, buffer, lenp, ppos);
 +
 +	if (!ret && write) {
-+		cpus_read_lock();
 +		if (val)
-+			static_branch_enable_cpuslocked(&sched_poc_lockless_bitmap);
++			static_branch_enable(&sched_poc_waker_yield);
 +		else
-+			static_branch_disable_cpuslocked(&sched_poc_lockless_bitmap);
-+		/*
-+		 * Resync the newly-active representation so readers see
-+		 * consistent state immediately after the mode switch.
-+		 */
-+		poc_resync_idle_state();
-+		cpus_read_unlock();
++			static_branch_disable(&sched_poc_waker_yield);
 +	}
 +	return ret;
 +}
@@ -2174,13 +2213,13 @@ index 000000000..d0f1a4532
 +		.mode		= 0644,
 +		.proc_handler	= sched_poc_count_sysctl_handler,
 +	},
-+	{
-+		.procname	= "sched_poc_lockless_bitmap",
-+		.data		= NULL,
-+		.maxlen		= sizeof(unsigned int),
-+		.mode		= 0644,
-+		.proc_handler	= sched_poc_lockless_bitmap_sysctl_handler,
-+	},
++		{
++			.procname = "sched_poc_waker_yield",
++			.data    = NULL,
++			.maxlen  = sizeof(unsigned int),
++			.mode    = 0644,
++			.proc_handler = sched_poc_waker_yield_handler,
++		},
 +};
 +
 +static int __init sched_poc_sysctl_init(void)
@@ -2447,21 +2486,22 @@ index 000000000..d0f1a4532
 +#endif /* CONFIG_SYSFS */
 +#endif /* CONFIG_SCHED_POC_SELECTOR */
 diff --git a/kernel/sched/sched.h b/kernel/sched/sched.h
-index ef9db7330..77601c097 100644
+index ef9db7330..32ec3802c 100644
 --- a/kernel/sched/sched.h
 +++ b/kernel/sched/sched.h
-@@ -1179,6 +1179,10 @@ struct rq {
+@@ -1179,6 +1179,11 @@ struct rq {
  	call_single_data_t	nohz_csd;
  #endif /* CONFIG_NO_HZ_COMMON */
  
 +#ifdef CONFIG_SCHED_POC_SELECTOR
 +	unsigned int		poc_idle_committed;
++	u64			poc_busy_bit;	/* lazy commit: pre-shifted busy bit (0 = idle), lazy mode */
 +#endif
 +
  #ifdef CONFIG_UCLAMP_TASK
  	/* Utilization clamp values based on CPU's RUNNABLE tasks */
  	struct uclamp_rq	uclamp[UCLAMP_CNT] ____cacheline_aligned;
-@@ -2378,6 +2382,119 @@ static inline struct task_group *task_group(struct task_struct *p)
+@@ -2378,6 +2383,121 @@ static inline struct task_group *task_group(struct task_struct *p)
  
  #endif /* !CONFIG_CGROUP_SCHED */
  
@@ -2478,8 +2518,10 @@ index ef9db7330..77601c097 100644
 +extern struct static_key_true sched_poc_smt_uniform;
 +extern struct static_key_false sched_poc_target_sticky;
 +extern struct static_key_true sched_poc_packed;
-+extern struct static_key_false sched_poc_lockless_bitmap;
 +extern void __set_cpu_idle_state_poc(int cpu, int state);
++extern struct static_key_true sched_poc_waker_yield;
++void poc_aggregate(struct sched_domain_shared *sd_share);
++extern unsigned int poc_pull_budget;
 +extern void poc_sd_shared_init(struct sched_domain *sd, int sd_id);
 +static __always_inline void set_cpu_idle_state_poc(int cpu, int state)
 +{
@@ -2581,7 +2623,7 @@ index ef9db7330..77601c097 100644
  static inline void __set_task_cpu(struct task_struct *p, unsigned int cpu)
  {
  	set_task_rq(p, cpu);
-@@ -3461,6 +3578,7 @@ extern void nohz_run_idle_balance(int cpu);
+@@ -3461,6 +3581,7 @@ extern void nohz_run_idle_balance(int cpu);
  static inline void nohz_run_idle_balance(int cpu) { }
  #endif
  

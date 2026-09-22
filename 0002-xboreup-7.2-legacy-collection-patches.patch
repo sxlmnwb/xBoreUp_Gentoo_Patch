@@ -1,4 +1,4 @@
-From 192de3e3bc8abadeb3c46bd9921766c180cc7ac3 Mon Sep 17 00:00:00 2001
+From 3019fc9e51a207cf835c7c7cb86829b3a08c1e30 Mon Sep 17 00:00:00 2001
 From: Salman Wahib <sxlmnwb.dev@gmail.com>
 Date: Fri, 28 Aug 2026 10:42:58 +0700
 Subject: [PATCH 02/13] xboreup: (7.2) legacy collection patches
@@ -73,10 +73,10 @@ index b215b0ead..a47e70232 100644
  	rq = this_rq_lock_irq(&rf);
  
 diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 10f58281b..f8a142643 100644
+index 47a34a993..760358f96 100644
 --- a/net/ipv4/tcp.c
 +++ b/net/ipv4/tcp.c
-@@ -5360,7 +5360,7 @@ void __init tcp_init(void)
+@@ -5358,7 +5358,7 @@ void __init tcp_init(void)
  	tcp_init_mem();
  	/* Set per-socket limits to no more than 1/128 the pressure threshold */
  	limit = nr_free_buffer_pages() << (PAGE_SHIFT - 7);
