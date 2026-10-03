@@ -1,4 +1,4 @@
-From 8d7fd4cc6770ffef019fe3db8e21be235c3eeae4 Mon Sep 17 00:00:00 2001
+From 8f144ebeaebd06908c653049561da539f435ccb5 Mon Sep 17 00:00:00 2001
 From: Masahito S <firelzrd@gmail.com>
 Date: Tue, 8 Sep 2026 01:03:26 +0900
 Subject: [PATCH 11/13] mm: add lru_marie MARIE LRU v0.11.1
@@ -1033,7 +1033,7 @@ index 65fd08aab..bc2928db8 100644
  			/*
  			 * Defer proactive compaction if the fragmentation
 diff --git a/mm/huge_memory.c b/mm/huge_memory.c
-index 0dbed3ba5..7276a0411 100644
+index a2ad4a96b..981f23e0e 100644
 --- a/mm/huge_memory.c
 +++ b/mm/huge_memory.c
 @@ -6,6 +6,7 @@
@@ -1044,7 +1044,7 @@ index 0dbed3ba5..7276a0411 100644
  #include <linux/sched.h>
  #include <linux/sched/mm.h>
  #include <linux/sched/numa_balancing.h>
-@@ -3545,14 +3546,48 @@ static void lru_add_split_folio(struct folio *folio, struct folio *new_folio,
+@@ -3587,14 +3588,48 @@ static void lru_add_split_folio(struct folio *folio, struct folio *new_folio,
  		/* page reclaim is reclaiming a huge page */
  		VM_WARN_ON(folio_test_lru(folio));
  		folio_get(new_folio);
@@ -12679,7 +12679,7 @@ index f1a64d060..1111a84f7 100644
  }
  
 diff --git a/mm/memcontrol.c b/mm/memcontrol.c
-index 405faa4b8..251d45439 100644
+index 7138ebc6e..b9c6ce00d 100644
 --- a/mm/memcontrol.c
 +++ b/mm/memcontrol.c
 @@ -28,6 +28,7 @@
@@ -13746,7 +13746,7 @@ index 32ce8a7d9..b23c09b46 100644
  {
  	struct page *page = pfn_to_page(start_pfn);
 diff --git a/mm/rmap.c b/mm/rmap.c
-index 143cf80d9..47a6ade4b 100644
+index acdadb470..0a5c8becc 100644
 --- a/mm/rmap.c
 +++ b/mm/rmap.c
 @@ -75,6 +75,7 @@
@@ -13757,7 +13757,7 @@ index 143cf80d9..47a6ade4b 100644
  
  #include <asm/tlb.h>
  
-@@ -981,6 +982,11 @@ static bool folio_referenced_one(struct folio *folio,
+@@ -985,6 +986,11 @@ static bool folio_referenced_one(struct folio *folio,
  		if (lru_gen_enabled() && !lru_gen_switching() && pvmw.pte) {
  			if (lru_gen_look_around(&pvmw, nr))
  				referenced++;

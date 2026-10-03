@@ -1,4 +1,4 @@
-From 3019fc9e51a207cf835c7c7cb86829b3a08c1e30 Mon Sep 17 00:00:00 2001
+From 0145fd4f08cf11cf4d0ac361b9dc51daecd3a962 Mon Sep 17 00:00:00 2001
 From: Salman Wahib <sxlmnwb.dev@gmail.com>
 Date: Fri, 28 Aug 2026 10:42:58 +0700
 Subject: [PATCH 02/13] xboreup: (7.2) legacy collection patches
@@ -33,10 +33,10 @@ index 485df9c2d..496c67117 100644
  extern unsigned long sysctl_user_reserve_kbytes;
  extern unsigned long sysctl_admin_reserve_kbytes;
 diff --git a/include/net/sock.h b/include/net/sock.h
-index 51185222a..606a03fdb 100644
+index 60ea55dc1..e7ebca37c 100644
 --- a/include/net/sock.h
 +++ b/include/net/sock.h
-@@ -3077,7 +3077,7 @@ void sk_get_meminfo(const struct sock *sk, u32 *meminfo);
+@@ -3079,7 +3079,7 @@ void sk_get_meminfo(const struct sock *sk, u32 *meminfo);
   * platforms.  This makes socket queueing behavior and performance
   * not depend upon such differences.
   */

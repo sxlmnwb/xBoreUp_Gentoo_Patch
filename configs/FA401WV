@@ -1,6 +1,6 @@
 #
 # Automatically generated file; DO NOT EDIT.
-# Linux/x86 7.2.7 Kernel Configuration
+# Linux/x86 7.2.9 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="xBoreUp [lto-thin,polly,znver5,O3] clang version 23.1.2 (https://github.com/llvm/llvm-project.git e280c5056ed110a11411413da2b76da226f3113b)"
 CONFIG_GCC_VERSION=0
@@ -423,6 +423,7 @@ CONFIG_PARAVIRT_CLOCK=y
 # CONFIG_BHYVE_GUEST is not set
 # CONFIG_INTEL_TDX_GUEST is not set
 CONFIG_CC_HAS_MARCH_NATIVE=y
+CONFIG_RUSTC_HAS_APXF=y
 # CONFIG_X86_NATIVE_CPU is not set
 CONFIG_X86_INTERNODE_CACHE_SHIFT=6
 CONFIG_X86_L1_CACHE_SHIFT=6

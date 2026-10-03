@@ -1,4 +1,4 @@
-From fa6a93e3dd1547f62384f89b89d291f49f600dde Mon Sep 17 00:00:00 2001
+From 2b6ac0713908e83eab74c50fe5bb2dc93310c745 Mon Sep 17 00:00:00 2001
 From: Salman Wahib <sxlmnwb.dev@gmail.com>
 Date: Fri, 28 Aug 2026 10:09:45 +0700
 Subject: [PATCH 01/13] gentoo: (7.2)
@@ -318,10 +318,10 @@ index 35b538ba8..f97dc5f35 100644
  	case PR_PPC_GET_DEXCR:
  		if (arg3 || arg4 || arg5)
 diff --git a/net/bluetooth/hci_conn.c b/net/bluetooth/hci_conn.c
-index 8de98af2f..0c0c0097b 100644
+index 96195d2fd..4064a703b 100644
 --- a/net/bluetooth/hci_conn.c
 +++ b/net/bluetooth/hci_conn.c
-@@ -2523,8 +2523,13 @@ int hci_conn_check_link_mode(struct hci_conn *conn)
+@@ -2554,8 +2554,13 @@ int hci_conn_check_link_mode(struct hci_conn *conn)
  		return 0;
  	}
  
