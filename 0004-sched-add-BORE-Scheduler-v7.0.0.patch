@@ -1,4 +1,4 @@
-From 9527edbae40490e05d1a9079b14ec68d8156ba95 Mon Sep 17 00:00:00 2001
+From 753a6d9f8e8703c064ceb3621addb89df54fbbb5 Mon Sep 17 00:00:00 2001
 From: Masahito S <firelzrd@gmail.com>
 Date: Sat, 19 Sep 2026 00:31:35 +0900
 Subject: [PATCH 04/13] sched: add BORE Scheduler v7.0.0
