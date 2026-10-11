@@ -1,4 +1,4 @@
-From 0ae07fa29869f0428522e87d68884021d5391986 Mon Sep 17 00:00:00 2001
+From a760df94877bfe520f60da2fb32b68d7d40c046b Mon Sep 17 00:00:00 2001
 From: Masahito S <firelzrd@gmail.com>
 Date: Sat, 3 Oct 2026 01:16:59 +0900
 Subject: [PATCH 10/13] cpufreq: add Reflex Governor v0.4.0

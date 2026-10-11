@@ -1,6 +1,6 @@
 #
 # Automatically generated file; DO NOT EDIT.
-# Linux/x86 7.2.9 Kernel Configuration
+# Linux/x86 7.2.10 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="xBoreUp [lto-thin,polly,znver5,O3] clang version 23.1.4 (https://github.com/llvm/llvm-project.git d657d8d8c0fd9601d68dfbabb28cd6fe33115a75)"
 CONFIG_GCC_VERSION=0
@@ -25,6 +25,7 @@ CONFIG_CC_HAS_COUNTED_BY=y
 CONFIG_CC_HAS_COUNTED_BY_PTR=y
 CONFIG_CC_HAS_ALLOC_TOKEN=y
 CONFIG_CC_HAS_MULTIDIMENSIONAL_NONSTRING=y
+CONFIG_CC_OPT_INLINE_MEMSET="-mllvm -max-store-memset=4294967294"
 CONFIG_LD_CAN_USE_KEEP_IN_OVERLAY=y
 CONFIG_RUSTC_HAS_SPAN_FILE=y
 CONFIG_RUSTC_HAS_UNNECESSARY_TRANSMUTES=y
