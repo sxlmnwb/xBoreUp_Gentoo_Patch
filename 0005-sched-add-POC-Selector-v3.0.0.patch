@@ -1,4 +1,4 @@
-From f29f9270c88b6959a6bc16e0506b0a4a5d137b42 Mon Sep 17 00:00:00 2001
+From b086d2ee25c794f37a57c92a978241bd9532750f Mon Sep 17 00:00:00 2001
 From: Masahito S <firelzrd@gmail.com>
 Date: Sat, 26 Sep 2026 00:55:51 +0700
 Subject: [PATCH 05/13] sched: add POC Selector v3.0.0
@@ -153,10 +153,10 @@ index 0afeabd44..8b85f1161 100644
  	/* A delayed task cannot be in clone(). */
  	WARN_ON_ONCE(p->se.sched_delayed);
 diff --git a/kernel/sched/ext/ext.c b/kernel/sched/ext/ext.c
-index cd7cbd1c9..54a53cd85 100644
+index 8d4992e7e..8b8c289e1 100644
 --- a/kernel/sched/ext/ext.c
 +++ b/kernel/sched/ext/ext.c
-@@ -6390,6 +6390,9 @@ static void scx_root_disable(struct scx_sched *sch)
+@@ -6423,6 +6423,9 @@ static void scx_root_disable(struct scx_sched *sch)
  	mutex_unlock(&scx_enable_mutex);
  
  	WARN_ON_ONCE(scx_set_enable_state(SCX_DISABLED) != SCX_DISABLING);
@@ -166,7 +166,7 @@ index cd7cbd1c9..54a53cd85 100644
  done:
  	scx_bypass(sch, false);
  }
-@@ -7606,6 +7609,10 @@ static void scx_root_enable_workfn(struct kthread_work *work)
+@@ -7638,6 +7641,10 @@ static void scx_root_enable_workfn(struct kthread_work *work)
  		}
  	}
  
@@ -3031,10 +3031,10 @@ index 000000000..e645ed7be
 +	poc_sync_resolve(p, exec - (p->poc_sync.mark - 1));
 +}
 diff --git a/kernel/sched/sched.h b/kernel/sched/sched.h
-index ef9db7330..9a34bc0d4 100644
+index 9b223aea2..3c11f8de0 100644
 --- a/kernel/sched/sched.h
 +++ b/kernel/sched/sched.h
-@@ -1179,6 +1179,11 @@ struct rq {
+@@ -1178,6 +1178,11 @@ struct rq {
  	call_single_data_t	nohz_csd;
  #endif /* CONFIG_NO_HZ_COMMON */
  
@@ -3046,7 +3046,7 @@ index ef9db7330..9a34bc0d4 100644
  #ifdef CONFIG_UCLAMP_TASK
  	/* Utilization clamp values based on CPU's RUNNABLE tasks */
  	struct uclamp_rq	uclamp[UCLAMP_CNT] ____cacheline_aligned;
-@@ -2378,6 +2383,8 @@ static inline struct task_group *task_group(struct task_struct *p)
+@@ -2377,6 +2382,8 @@ static inline struct task_group *task_group(struct task_struct *p)
  
  #endif /* !CONFIG_CGROUP_SCHED */
  

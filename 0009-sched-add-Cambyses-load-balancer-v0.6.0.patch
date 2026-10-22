@@ -1,4 +1,4 @@
-From 398bd61d766a95dfba91e29b28be6251e5416e4b Mon Sep 17 00:00:00 2001
+From 2762b98d5773699d5cc7538f18ac5b0f97ac5676 Mon Sep 17 00:00:00 2001
 From: Masahito S <firelzrd@gmail.com>
 Date: Sun, 11 Oct 2026 23:36:46 +0700
 Subject: [PATCH 09/13] sched: add Cambyses load balancer v0.6.0

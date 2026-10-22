@@ -1,4 +1,4 @@
-From b2e7b373d38db03193571864acd4b9f6c9494122 Mon Sep 17 00:00:00 2001
+From b2caecf95b8ea7c1d1f649c054d0463dbdbcdf6d Mon Sep 17 00:00:00 2001
 From: Masahito S <firelzrd@gmail.com>
 Date: Sat, 19 Sep 2026 00:31:35 +0900
 Subject: [PATCH 04/13] sched: add BORE Scheduler v7.0.0
@@ -211,7 +211,7 @@ index 27e5cf81e..7b0fa38f5 100644
  	}
  	list_del_rcu(&p->thread_node);
 diff --git a/kernel/fork.c b/kernel/fork.c
-index b22b5ba9a..e8f4f8953 100644
+index 854448152..51da53539 100644
 --- a/kernel/fork.c
 +++ b/kernel/fork.c
 @@ -120,6 +120,10 @@
@@ -1340,10 +1340,10 @@ index b6cace1d0..d23c0b237 100644
  	set_task_max_allowed_capacity(p);
  
 diff --git a/kernel/sched/sched.h b/kernel/sched/sched.h
-index f76e6f7f4..ef9db7330 100644
+index d25defb11..9b223aea2 100644
 --- a/kernel/sched/sched.h
 +++ b/kernel/sched/sched.h
-@@ -2267,7 +2267,11 @@ extern int group_balance_cpu(struct sched_group *sg);
+@@ -2266,7 +2266,11 @@ extern int group_balance_cpu(struct sched_group *sg);
  extern void update_sched_domain_debugfs(void);
  extern void dirty_sched_domain_sysctl(int cpu);
  
@@ -1355,7 +1355,7 @@ index f76e6f7f4..ef9db7330 100644
  
  static inline const struct cpumask *task_user_cpus(struct task_struct *p)
  {
-@@ -3112,7 +3116,12 @@ static inline void attach_one_task(struct rq *rq, struct task_struct *p)
+@@ -3111,7 +3115,12 @@ static inline void attach_one_task(struct rq *rq, struct task_struct *p)
  extern __read_mostly unsigned int sysctl_sched_nr_migrate;
  extern __read_mostly unsigned int sysctl_sched_migration_cost;
  
