@@ -1,7 +1,7 @@
-From 8527270ce67b423a6fac401863ade53fddecf78e Mon Sep 17 00:00:00 2001
+From f9c07a25cf7d6709448120f14d7e2893acb0282b Mon Sep 17 00:00:00 2001
 From: David Morley <morleyd@google.com>
 Date: Fri, 26 Jun 2026 11:32:23 -0300
-Subject: [PATCH 03/13] tcp_bbr: v3: update TCP 'bbr' congestion control module
+Subject: [PATCH 03/12] tcp_bbr: v3: update TCP 'bbr' congestion control module
  to BBRv3
 
 Original patchset
@@ -378,7 +378,7 @@ index 791e15063..4f2c7bca2 100644
  	.undo_cwnd = bpf_tcp_ca_undo_cwnd,
  	.sndbuf_expand = bpf_tcp_ca_sndbuf_expand,
 diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 23c66c745..8e28b8885 100644
+index f7aacca44..5d477d4e5 100644
 --- a/net/ipv4/tcp.c
 +++ b/net/ipv4/tcp.c
 @@ -3484,6 +3484,7 @@ int tcp_disconnect(struct sock *sk, int flags)
@@ -3057,7 +3057,7 @@ index 82378a2bf..dc2491cb0 100644
  MODULE_DESCRIPTION("TCP BBR (Bottleneck Bandwidth and RTT)");
 +MODULE_VERSION(__stringify(BBR_VERSION));
 diff --git a/net/ipv4/tcp_cong.c b/net/ipv4/tcp_cong.c
-index e9f6c77e0..8e5e77a77 100644
+index 8e83ef81f..50e6c89ad 100644
 --- a/net/ipv4/tcp_cong.c
 +++ b/net/ipv4/tcp_cong.c
 @@ -238,6 +238,7 @@ void tcp_init_congestion_control(struct sock *sk)
@@ -3246,7 +3246,7 @@ index 99baf14af..f56d0f356 100644
  	    tcp_in_quickack_mode(sk) ||
  	    /* Protocol state mandates a one-time immediate ACK */
 diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
-index fb901b368..68b1ba85b 100644
+index 6117d5c85..f722e18d7 100644
 --- a/net/ipv4/tcp_minisocks.c
 +++ b/net/ipv4/tcp_minisocks.c
 @@ -500,6 +500,8 @@ void tcp_ca_openreq_child(struct sock *sk, const struct dst_entry *dst)
@@ -3259,7 +3259,7 @@ index fb901b368..68b1ba85b 100644
  		const struct tcp_congestion_ops *ca;
  
 diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 0b89b624a..7976734ff 100644
+index 9f7232888..d987a9e4a 100644
 --- a/net/ipv4/tcp_output.c
 +++ b/net/ipv4/tcp_output.c
 @@ -365,7 +365,8 @@ static void tcp_ecn_send(struct sock *sk, struct sk_buff *skb,
@@ -3395,5 +3395,5 @@ index 95296b1cf..ce9c02157 100644
  	event = icsk->icsk_pending;
  
 -- 
-2.55.0
+2.56.0
 

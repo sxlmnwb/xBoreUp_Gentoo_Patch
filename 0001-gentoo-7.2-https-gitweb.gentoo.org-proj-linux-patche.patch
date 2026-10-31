@@ -1,7 +1,7 @@
-From d280ad7a553bc608f2dbdd70b461a98c5d758b6e Mon Sep 17 00:00:00 2001
+From c33ced7a5613307aa0f17d860ebe8d6a42dc3333 Mon Sep 17 00:00:00 2001
 From: Salman Wahib <sxlmnwb.dev@gmail.com>
 Date: Fri, 28 Aug 2026 10:09:45 +0700
-Subject: [PATCH 01/13] gentoo: (7.2)
+Subject: [PATCH 01/12] gentoo: (7.2)
  https://gitweb.gentoo.org/proj/linux-patches.git
 
 include:
@@ -276,7 +276,7 @@ index 24213a0ea..16c4544e5 100644
  		goto out;
  
 diff --git a/fs/namei.c b/fs/namei.c
-index 27e0637bf..782796975 100644
+index 5b9f701f3..df752c535 100644
 --- a/fs/namei.c
 +++ b/fs/namei.c
 @@ -1201,10 +1201,10 @@ static inline void put_link(struct nameidata *nd)
@@ -588,5 +588,5 @@ index 295dbda24..453b4223b 100644
  struct symbol {
  	const char *name;
 -- 
-2.55.0
+2.56.0
 

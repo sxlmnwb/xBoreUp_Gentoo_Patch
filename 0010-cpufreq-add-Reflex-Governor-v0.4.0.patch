@@ -1,7 +1,7 @@
-From a7a74bd51ad5d4cd5299877fd00da8ef34cacd73 Mon Sep 17 00:00:00 2001
+From 1122b276cec1352f57dcacc6b686e39e981db918 Mon Sep 17 00:00:00 2001
 From: Masahito S <firelzrd@gmail.com>
 Date: Sat, 3 Oct 2026 01:16:59 +0900
-Subject: [PATCH 10/13] cpufreq: add Reflex Governor v0.4.0
+Subject: [PATCH 10/12] cpufreq: add Reflex Governor v0.4.0
 
 schedutil plus a measured fast path for rising load. Bursts that
 follow an idle reach speed within one scheduler tick instead of
@@ -1475,5 +1475,5 @@ index a47e70232..c7b73b0aa 100644
  /**
   * idle_task - return the idle task for a given CPU.
 -- 
-2.55.0
+2.56.0
 

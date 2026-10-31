@@ -1,7 +1,7 @@
-From 5edc7e8eb52acaa27c521825d482a71d4a985393 Mon Sep 17 00:00:00 2001
+From b4db7f33ef51878fac988c533bfe96119800def2 Mon Sep 17 00:00:00 2001
 From: Masahito S <firelzrd@gmail.com>
 Date: Sat, 25 Jul 2026 14:55:09 +0900
-Subject: [PATCH 08/13] zram: add LZ4KDR compression backend v1.3
+Subject: [PATCH 08/12] zram: add LZ4KDR compression backend v1.3
 
 LZ4KDR is a speed-tuned derivative of Huawei's LZ4KD, wire-compatible
 with the original decoder but with a reworked encoder search loop
@@ -1770,5 +1770,5 @@ index 000000000..ea824117b
 +
 +#endif /* _LIB_LZ4KDR_VERSION_H */
 -- 
-2.55.0
+2.56.0
 

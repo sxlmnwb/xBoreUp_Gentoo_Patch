@@ -1,7 +1,7 @@
-From b2caecf95b8ea7c1d1f649c054d0463dbdbcdf6d Mon Sep 17 00:00:00 2001
+From e28cc2a98f83a729779e9abb2402e01edbf40432 Mon Sep 17 00:00:00 2001
 From: Masahito S <firelzrd@gmail.com>
 Date: Sat, 19 Sep 2026 00:31:35 +0900
-Subject: [PATCH 04/13] sched: add BORE Scheduler v7.0.0
+Subject: [PATCH 04/12] sched: add BORE Scheduler v7.0.0
 
 Burst-Oriented Response Enhancer (BORE) scheduler improves interactivity
 by tracking burst behavior per-task and adjusting vruntime penalties accordingly.
@@ -195,7 +195,7 @@ index ce1435cb0..9eee2005e 100644
 +	 an unnecessarily large base slice, resulting in high scheduling
 +	 latency and poor system responsiveness.
 diff --git a/kernel/exit.c b/kernel/exit.c
-index 27e5cf81e..7b0fa38f5 100644
+index f7c48f1c4..481ca5a7d 100644
 --- a/kernel/exit.c
 +++ b/kernel/exit.c
 @@ -147,7 +147,11 @@ static void __unhash_process(struct release_task_post *post, struct task_struct
@@ -831,7 +831,7 @@ index e2cf3b08d..aad225930 100644
  
  #ifdef CONFIG_CGROUP_CPUACCT
 diff --git a/kernel/sched/core.c b/kernel/sched/core.c
-index c10456263..0afeabd44 100644
+index 383ced415..f66de439a 100644
 --- a/kernel/sched/core.c
 +++ b/kernel/sched/core.c
 @@ -100,6 +100,10 @@
@@ -1369,5 +1369,5 @@ index d25defb11..9b223aea2 100644
  extern int sysctl_resched_latency_warn_ms;
  extern int sysctl_resched_latency_warn_once;
 -- 
-2.55.0
+2.56.0
 

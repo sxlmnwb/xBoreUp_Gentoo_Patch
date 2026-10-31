@@ -1,7 +1,7 @@
-From a945b6c739c02cac90d99ba7d5f5666f2e960788 Mon Sep 17 00:00:00 2001
+From c5419c10a78fd2cf419f5d448021381647f44243 Mon Sep 17 00:00:00 2001
 From: Masahito S <firelzrd@gmail.com>
 Date: Tue, 8 Sep 2026 01:04:58 +0900
-Subject: [PATCH 06/13] block: add ADIOS I/O Scheduler v3.3.0
+Subject: [PATCH 06/12] block: add ADIOS I/O Scheduler v3.3.0
 
 Adaptive Deadline I/O Scheduler for blk-mq block devices.
 Combines deadline scheduling with a learning-based adaptive
@@ -2095,5 +2095,5 @@ index 2161b6eea..72a0dc6b3 100644
  }
  
 -- 
-2.55.0
+2.56.0
 

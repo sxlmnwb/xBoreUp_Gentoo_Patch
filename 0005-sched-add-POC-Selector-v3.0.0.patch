@@ -1,7 +1,7 @@
-From b086d2ee25c794f37a57c92a978241bd9532750f Mon Sep 17 00:00:00 2001
+From 089c2fe37fd606028622efec81ab6d04ae1fd0dc Mon Sep 17 00:00:00 2001
 From: Masahito S <firelzrd@gmail.com>
 Date: Sat, 26 Sep 2026 00:55:51 +0700
-Subject: [PATCH 05/13] sched: add POC Selector v3.0.0
+Subject: [PATCH 05/12] sched: add POC Selector v3.0.0
 
 Piece-Of-Cake (POC) O(1) Idle CPU Selector for select_idle_cpu() hot path.
 Uses per-LLC atomic64_t bitmaps with lock-free reads for O(1) idle CPU discovery,
@@ -138,7 +138,7 @@ index 3e8e4abd8..fc2b45643 100644
  	bool "Kernel->user space relay support (formerly relayfs)"
  	select IRQ_WORK
 diff --git a/kernel/sched/core.c b/kernel/sched/core.c
-index 0afeabd44..8b85f1161 100644
+index f66de439a..d739ffdee 100644
 --- a/kernel/sched/core.c
 +++ b/kernel/sched/core.c
 @@ -4605,6 +4605,10 @@ static void __sched_fork(u64 clone_flags, struct task_struct *p)
@@ -153,10 +153,10 @@ index 0afeabd44..8b85f1161 100644
  	/* A delayed task cannot be in clone(). */
  	WARN_ON_ONCE(p->se.sched_delayed);
 diff --git a/kernel/sched/ext/ext.c b/kernel/sched/ext/ext.c
-index 8d4992e7e..8b8c289e1 100644
+index 3ee16f7f2..5a8cc1dce 100644
 --- a/kernel/sched/ext/ext.c
 +++ b/kernel/sched/ext/ext.c
-@@ -6423,6 +6423,9 @@ static void scx_root_disable(struct scx_sched *sch)
+@@ -6466,6 +6466,9 @@ static void scx_root_disable(struct scx_sched *sch)
  	mutex_unlock(&scx_enable_mutex);
  
  	WARN_ON_ONCE(scx_set_enable_state(SCX_DISABLED) != SCX_DISABLING);
@@ -166,7 +166,7 @@ index 8d4992e7e..8b8c289e1 100644
  done:
  	scx_bypass(sch, false);
  }
-@@ -7638,6 +7641,10 @@ static void scx_root_enable_workfn(struct kthread_work *work)
+@@ -7681,6 +7684,10 @@ static void scx_root_enable_workfn(struct kthread_work *work)
  		}
  	}
  
@@ -3070,5 +3070,5 @@ index 70b63224a..a1ef9576d 100644
  			/*
  			 * In presence of higher domains, adjust the
 -- 
-2.55.0
+2.56.0
 
