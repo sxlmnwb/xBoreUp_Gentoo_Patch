@@ -1,7 +1,7 @@
-From ccb645b50ccc165b9ffa5f8e13c1ca289f64c710 Mon Sep 17 00:00:00 2001
+From 0911408220e35b79b080d62fed059269e493a0af Mon Sep 17 00:00:00 2001
 From: Masahito S <firelzrd@gmail.com>
 Date: Mon, 12 Oct 2026 21:29:41 +0900
-Subject: [PATCH 07/12] cpuidle: add NAP Governor v0.6.5
+Subject: [PATCH 07/11] cpuidle: add NAP Governor v0.6.5
 
 Neural Adaptive Predictor (NAP) CPUIdle governor.
 Uses a per-CPU 11-feature, 32-hidden-unit MLP running in-kernel
@@ -10,7 +10,7 @@ idle time, then picks the idle state that minimizes energy plus
 a weighted avoidable wakeup latency (budget_ppm).
 
 Source: https://github.com/firelzrd/nap
-Patch: 0001-6.18.3-nap-v0.6.5.patch
+Patch: 0001-6.12-nap-v0.6.5.patch
 
 Co-authored-by: Masahito S <firelzrd@gmail.com>
 Signed-off-by: Salman Wahib <sxlmnwb.dev@gmail.com>
@@ -46,7 +46,7 @@ Signed-off-by: Salman Wahib <sxlmnwb.dev@gmail.com>
  create mode 100644 drivers/cpuidle/governors/nap/nap_weights.h
 
 diff --git a/drivers/cpuidle/Kconfig b/drivers/cpuidle/Kconfig
-index d6d8386d3..8c9a45bb0 100644
+index 00e256204..63d2c4473 100644
 --- a/drivers/cpuidle/Kconfig
 +++ b/drivers/cpuidle/Kconfig
 @@ -44,6 +44,30 @@ config CPU_IDLE_GOV_HALTPOLL

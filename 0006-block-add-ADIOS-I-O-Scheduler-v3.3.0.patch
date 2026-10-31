@@ -1,7 +1,7 @@
-From c5419c10a78fd2cf419f5d448021381647f44243 Mon Sep 17 00:00:00 2001
+From a3da0dfc5d614454ed02e0d9b0f209cebfa6a88a Mon Sep 17 00:00:00 2001
 From: Masahito S <firelzrd@gmail.com>
-Date: Tue, 8 Sep 2026 01:04:58 +0900
-Subject: [PATCH 06/12] block: add ADIOS I/O Scheduler v3.3.0
+Date: Sat, 31 Oct 2026 23:19:31 +0700
+Subject: [PATCH 06/11] block: add ADIOS I/O Scheduler v3.3.0
 
 Adaptive Deadline I/O Scheduler for blk-mq block devices.
 Combines deadline scheduling with a learning-based adaptive
@@ -9,16 +9,16 @@ latency control mechanism that predicts I/O completion time to
 dynamically adjust deadlines and batching behavior across 4 priority tiers.
 
 Source: https://github.com/firelzrd/adios
-Patch: 0001-linux6.18.3-ADIOS-3.3.0.patch
+Patch: 0001-linux7.3-rc1-ADIOS-3.3.0r2.patch
 
 Co-authored-by: Masahito S <firelzrd@gmail.com>
 Signed-off-by: Salman Wahib <sxlmnwb.dev@gmail.com>
 ---
  block/Kconfig.iosched |   14 +
  block/Makefile        |    8 +
- block/adios.c         | 1981 +++++++++++++++++++++++++++++++++++++++++
+ block/adios.c         | 1986 +++++++++++++++++++++++++++++++++++++++++
  block/elevator.c      |   19 +-
- 4 files changed, 2015 insertions(+), 7 deletions(-)
+ 4 files changed, 2020 insertions(+), 7 deletions(-)
  create mode 100644 block/adios.c
 
 diff --git a/block/Kconfig.iosched b/block/Kconfig.iosched
@@ -71,10 +71,10 @@ index e7bd320e3..5523e5f62 100644
 +
 diff --git a/block/adios.c b/block/adios.c
 new file mode 100644
-index 000000000..8d497717f
+index 000000000..e55d966a6
 --- /dev/null
 +++ b/block/adios.c
-@@ -0,0 +1,1981 @@
+@@ -0,0 +1,1986 @@
 +// SPDX-License-Identifier: GPL-2.0
 +/*
 + * Adaptive Deadline I/O Scheduler (ADIOS)
@@ -907,11 +907,15 @@ index 000000000..8d497717f
 +	data->shallow_depth = ad->async_depth;
 +}
 +
-+// The number of requests in the queue was notified from the block layer
++// The number of requests in the queue was notified from the block layer.
++// Since 7.0 the async throttling depth lives in request_queue::async_depth
++// and is user-tunable through /sys/block/<dev>/queue/async_depth, which
++// invokes this callback. Mirror it instead of re-deriving from nr_requests
++// so that the knob actually takes effect (mq-deadline/kyber/bfq do the same).
 +static void adios_depth_updated(struct request_queue *q) {
 +	struct adios_data *ad = q->elevator->elevator_data;
 +
-+	ad->async_depth = q->nr_requests;
++	ad->async_depth = q->async_depth;
 +	blk_mq_set_min_shallow_depth(q, ad->async_depth);
 +}
 +
@@ -1606,6 +1610,7 @@ index 000000000..8d497717f
 +	blk_stat_enable_accounting(q);
 +
 +	q->elevator = eq;
++	q->async_depth = q->nr_requests;
 +	adios_depth_updated(q);
 +	return 0;
 +

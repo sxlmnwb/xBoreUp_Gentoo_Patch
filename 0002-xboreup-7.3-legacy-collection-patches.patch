@@ -1,7 +1,7 @@
-From 086d4f49ffe2ab55e01e6ebe7a474c3cd264cc6f Mon Sep 17 00:00:00 2001
+From e0fb536dcc1d0615441dae1f68fc5920bf41d9ba Mon Sep 17 00:00:00 2001
 From: Salman Wahib <sxlmnwb.dev@gmail.com>
 Date: Fri, 28 Aug 2026 10:42:58 +0700
-Subject: [PATCH 02/12] xboreup: (7.2) legacy collection patches
+Subject: [PATCH 02/11] xboreup: (7.3) legacy collection patches
 
 * Bigger TCP write buffer for high-throughput
   connections
@@ -10,6 +10,7 @@ Subject: [PATCH 02/12] xboreup: (7.2) legacy collection patches
 * Prevent yield spam in Proton/Wine games that
   abuse sched_yield()
 * Prevent game crashes caused by VMA exhaustion
+* Remove '+' tag for git repo short version
 
 Signed-off-by: Salman Wahib <sxlmnwb.dev@gmail.com>
 ---
@@ -17,13 +18,14 @@ Signed-off-by: Salman Wahib <sxlmnwb.dev@gmail.com>
  include/net/sock.h      |  2 +-
  kernel/sched/syscalls.c | 12 ++++++++++++
  net/ipv4/tcp.c          |  2 +-
- 4 files changed, 15 insertions(+), 3 deletions(-)
+ scripts/setlocalversion |  1 -
+ 5 files changed, 15 insertions(+), 4 deletions(-)
 
 diff --git a/include/linux/mm.h b/include/linux/mm.h
-index 485df9c2d..496c67117 100644
+index dd09c438f..31f606ad9 100644
 --- a/include/linux/mm.h
 +++ b/include/linux/mm.h
-@@ -205,7 +205,7 @@ static inline void __mm_zero_struct_page(struct page *page)
+@@ -206,7 +206,7 @@ static inline void __mm_zero_struct_page(struct page *page)
   * that.
   */
  #define MAPCOUNT_ELF_CORE_MARGIN	(5)
@@ -85,6 +87,18 @@ index 87ef6d5cb..f7aacca44 100644
  	max_rshare = min(32UL*1024*1024, limit);
  
  	init_net.ipv4.sysctl_tcp_wmem[0] = PAGE_SIZE;
+diff --git a/scripts/setlocalversion b/scripts/setlocalversion
+index 28169d7e1..6ce26e123 100755
+--- a/scripts/setlocalversion
++++ b/scripts/setlocalversion
+@@ -117,7 +117,6 @@ scm_version()
+ 		# If only the short version is requested, don't bother
+ 		# running further git commands
+ 		if $short; then
+-			echo "+"
+ 			return
+ 		fi
+ 
 -- 
 2.56.0
 

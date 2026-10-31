@@ -1,7 +1,7 @@
-From b4db7f33ef51878fac988c533bfe96119800def2 Mon Sep 17 00:00:00 2001
+From 582aaab94d5582d58b272d6597262a4bebe93dee Mon Sep 17 00:00:00 2001
 From: Masahito S <firelzrd@gmail.com>
 Date: Sat, 25 Jul 2026 14:55:09 +0900
-Subject: [PATCH 08/12] zram: add LZ4KDR compression backend v1.3
+Subject: [PATCH 08/11] zram: add LZ4KDR compression backend v1.3
 
 LZ4KDR is a speed-tuned derivative of Huawei's LZ4KD, wire-compatible
 with the original decoder but with a reworked encoder search loop
@@ -363,10 +363,10 @@ index 000000000..5709c5d58
 +
 +#endif /* _LZ4KDR_H */
 diff --git a/lib/Kconfig b/lib/Kconfig
-index 55748b687..dad8b2e0a 100644
+index 4e6b34c33..6816f6901 100644
 --- a/lib/Kconfig
 +++ b/lib/Kconfig
-@@ -202,6 +202,12 @@ config LZ4_COMPRESS
+@@ -196,6 +196,12 @@ config LZ4_COMPRESS
  config LZ4HC_COMPRESS
  	tristate
  
@@ -380,10 +380,10 @@ index 55748b687..dad8b2e0a 100644
  	tristate
  
 diff --git a/lib/Makefile b/lib/Makefile
-index 7f75cc6ed..fadd92f2f 100644
+index dfab95832..968a3c82c 100644
 --- a/lib/Makefile
 +++ b/lib/Makefile
-@@ -164,6 +164,8 @@ obj-$(CONFIG_LZO_DECOMPRESS) += lzo/
+@@ -165,6 +165,8 @@ obj-$(CONFIG_LZO_DECOMPRESS) += lzo/
  obj-$(CONFIG_LZ4_COMPRESS) += lz4/
  obj-$(CONFIG_LZ4HC_COMPRESS) += lz4/
  obj-$(CONFIG_LZ4_DECOMPRESS) += lz4/

@@ -1,15 +1,16 @@
-From c33ced7a5613307aa0f17d860ebe8d6a42dc3333 Mon Sep 17 00:00:00 2001
-From: Salman Wahib <sxlmnwb.dev@gmail.com>
-Date: Fri, 28 Aug 2026 10:09:45 +0700
-Subject: [PATCH 01/12] gentoo: (7.2)
+From 2113f0438f8f51af7dc0ab66da1f990a8fd5429e Mon Sep 17 00:00:00 2001
+From: Mike Pagano <mpagano@gentoo.org>
+Date: Sat, 31 Oct 2026 22:43:44 +0700
+Subject: [PATCH 01/11] gentoo: (7.3)
  https://gitweb.gentoo.org/proj/linux-patches.git
 
-include:
 1510_fs-enable-link-security-restrictions-by-default.patch
 1700_sparc-address-warray-bound-warnings.patch
 1710_x86-tools-vdso2c.patch
+1715_x86-cpu-amd-avoid-printing-reset-reasons-on-Xen-domU.patch
 1730_parisc-Disable-prctl.patch
 2000_BT-Check-key-sizes-only-if-Secure-Simple-Pairing-enabled.patch
+2400_mt7921_fix-arr-indx-oob-in-mt7921-load-clc.patch
 2901_permit-menuconfig-sorting.patch
 2902_Replace-CONST-CAST-with-const-cast.patch
 2990_libbpf-v2-workaround-Wmaybe-uninitialized-false-pos.patch
@@ -20,22 +21,24 @@ include:
 Co-authored-by: Mike Pagano <mpagano@gentoo.org>
 Signed-off-by: Salman Wahib <sxlmnwb.dev@gmail.com>
 ---
- Kconfig                             |   2 +
- arch/sparc/mm/init_64.c             |   6 +-
- arch/x86/tools/Makefile             |   5 +-
- distro/Kconfig                      | 170 ++++++++++++++++++++++++++++
- drivers/base/firmware_loader/main.c |   5 +
- fs/namei.c                          |   8 +-
- kernel/sys.c                        |  10 +-
- net/bluetooth/hci_conn.c            |   9 +-
- scripts/gcc-plugins/gcc-common.h    |   4 +-
- scripts/kconfig/lxdialog/dialog.h   |   5 +-
- scripts/kconfig/lxdialog/menubox.c  |   7 +-
- scripts/kconfig/lxdialog/util.c     |  79 +++++++++++++
- scripts/kconfig/mconf.c             |   9 +-
- tools/lib/bpf/Makefile              |   7 +-
- tools/lib/bpf/elf.c                 |   8 ++
- 15 files changed, 315 insertions(+), 19 deletions(-)
+ Kconfig                                       |   2 +
+ arch/sparc/mm/init_64.c                       |   6 +-
+ arch/x86/kernel/cpu/amd.c                     |   6 +
+ arch/x86/tools/Makefile                       |   5 +-
+ distro/Kconfig                                | 170 ++++++++++++++++++
+ drivers/base/firmware_loader/main.c           |   5 +
+ .../net/wireless/mediatek/mt76/mt7921/mcu.c   |   3 +
+ fs/namei.c                                    |   8 +-
+ kernel/sys.c                                  |  10 +-
+ net/bluetooth/hci_conn.c                      |   9 +-
+ scripts/gcc-plugins/gcc-common.h              |   4 +-
+ scripts/kconfig/lxdialog/dialog.h             |   5 +-
+ scripts/kconfig/lxdialog/menubox.c            |   7 +-
+ scripts/kconfig/lxdialog/util.c               |  79 ++++++++
+ scripts/kconfig/mconf.c                       |   9 +-
+ tools/lib/bpf/Makefile                        |   7 +-
+ tools/lib/bpf/elf.c                           |   8 +
+ 17 files changed, 324 insertions(+), 19 deletions(-)
  create mode 100644 distro/Kconfig
 
 diff --git a/Kconfig b/Kconfig
@@ -67,6 +70,30 @@ index 103db4683..291408208 100644
  }
  
  static int __init report_memory(void)
+diff --git a/arch/x86/kernel/cpu/amd.c b/arch/x86/kernel/cpu/amd.c
+index 40463bad1..5637ab333 100644
+--- a/arch/x86/kernel/cpu/amd.c
++++ b/arch/x86/kernel/cpu/amd.c
+@@ -31,6 +31,8 @@
+ # include <asm/mmconfig.h>
+ #endif
+ 
++#include <xen/xen.h>
++
+ #include "cpu.h"
+ 
+ u16 invlpgb_count_max __ro_after_init = 1;
+@@ -1360,6 +1362,10 @@ static __init int print_s5_reset_status_mmio(void)
+ 	if (!cpu_feature_enabled(X86_FEATURE_ZEN))
+ 		return 0;
+ 
++	/* Xen PV domU cannot access hardware directly, so bail for domU case */
++	if (cpu_feature_enabled(X86_FEATURE_XENPV) && !xen_initial_domain())
++		return 0;
++
+ 	addr = ioremap(FCH_PM_BASE + FCH_PM_S5_RESET_STATUS, sizeof(value));
+ 	if (!addr)
+ 		return 0;
 diff --git a/arch/x86/tools/Makefile b/arch/x86/tools/Makefile
 index 39a183fff..afd967bc4 100644
 --- a/arch/x86/tools/Makefile
@@ -275,8 +302,22 @@ index 24213a0ea..16c4544e5 100644
  	if (ret <= 0) /* error or already assigned */
  		goto out;
  
+diff --git a/drivers/net/wireless/mediatek/mt76/mt7921/mcu.c b/drivers/net/wireless/mediatek/mt76/mt7921/mcu.c
+index 40546005c..622c1f469 100644
+--- a/drivers/net/wireless/mediatek/mt76/mt7921/mcu.c
++++ b/drivers/net/wireless/mediatek/mt76/mt7921/mcu.c
+@@ -494,6 +494,9 @@ static int mt7921_load_clc(struct mt792x_dev *dev, const char *fw_name)
+ 		if (clc->idx >= ARRAY_SIZE(phy->clc))
+ 			continue;
+ 
++		if (clc->idx >= ARRAY_SIZE(phy->clc))
++			continue;
++
+ 		/* do not init buf again if chip reset triggered */
+ 		if (phy->clc[clc->idx])
+ 			continue;
 diff --git a/fs/namei.c b/fs/namei.c
-index 5b9f701f3..df752c535 100644
+index e45e30603..12f7ce210 100644
 --- a/fs/namei.c
 +++ b/fs/namei.c
 @@ -1201,10 +1201,10 @@ static inline void put_link(struct nameidata *nd)
@@ -541,7 +582,7 @@ index b8b7bba84..eb0ea0e4d 100644
  			if (!item_activate_selected())
  				continue;
 diff --git a/tools/lib/bpf/Makefile b/tools/lib/bpf/Makefile
-index eca584fb0..1713dbb78 100644
+index 269fe21fc..5be3241bb 100644
 --- a/tools/lib/bpf/Makefile
 +++ b/tools/lib/bpf/Makefile
 @@ -78,10 +78,15 @@ LIB_TARGET	= libbpf.a libbpf.so.$(LIBBPF_VERSION)
@@ -562,7 +603,7 @@ index eca584fb0..1713dbb78 100644
  override CFLAGS += -fvisibility=hidden
  override CFLAGS += -D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=64
 diff --git a/tools/lib/bpf/elf.c b/tools/lib/bpf/elf.c
-index 295dbda24..453b4223b 100644
+index fe136d025..83733a167 100644
 --- a/tools/lib/bpf/elf.c
 +++ b/tools/lib/bpf/elf.c
 @@ -369,6 +369,11 @@ long elf_find_func_offset(Elf *elf, const char *binary_path, const char *name)
