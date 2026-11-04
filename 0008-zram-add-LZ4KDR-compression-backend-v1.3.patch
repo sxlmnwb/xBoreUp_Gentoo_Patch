@@ -1,4 +1,4 @@
-From 582aaab94d5582d58b272d6597262a4bebe93dee Mon Sep 17 00:00:00 2001
+From cb783b86ea8bd5beb26105c2c3b1c8798d04427b Mon Sep 17 00:00:00 2001
 From: Masahito S <firelzrd@gmail.com>
 Date: Sat, 25 Jul 2026 14:55:09 +0900
 Subject: [PATCH 08/11] zram: add LZ4KDR compression backend v1.3
@@ -10,7 +10,7 @@ adaptive per-CPU search-step acceleration, and combined dual-hash
 probing).
 
 Source: https://github.com/firelzrd/zram-ir
-Patch:  0001-linux6.12.74-lz4kdr-1.3.patch
+Patch: 0001-linux6.12.74-lz4kdr-1.3.patch
 
 Co-authored-by: Masahito S <firelzrd@gmail.com>
 Signed-off-by: Salman Wahib <sxlmnwb.dev@gmail.com>

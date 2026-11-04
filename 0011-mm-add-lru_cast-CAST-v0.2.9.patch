@@ -1,7 +1,7 @@
-From d91a78cbaa0f834f988226cf207e583aea2387b1 Mon Sep 17 00:00:00 2001
+From 84aa4273553fef22bd31ca260fb884d76890ed9d Mon Sep 17 00:00:00 2001
 From: Masahito S <firelzrd@gmail.com>
-Date: Thu, 29 Oct 2026 00:34:59 +0900
-Subject: [PATCH 11/11] mm: add lru_cast CAST v0.2.8
+Date: Sun, 1 Nov 2026 08:37:19 +0900
+Subject: [PATCH 11/11] mm: add lru_cast CAST v0.2.9
 
 Cost-Aware Self-Tuning LRFU.
 
@@ -15,15 +15,15 @@ walker, plus kcompressd-unofficial async swap-out and the le9uo
 clean-file floor.
 
 Source: https://github.com/firelzrd/lru_cast
-Patch: 0001-7.3-rc7-lru_cast-v0.2.8.patch
+Patch: 0001-7.3-rc7-lru_cast-v0.2.9.patch
 
 Co-authored-by: Masahito S <firelzrd@gmail.com>
 Signed-off-by: Salman Wahib <sxlmnwb.dev@gmail.com>
 ---
- include/linux/lru_cast.h           | 459 +++++++++++++++++
+ include/linux/lru_cast.h           | 480 +++++++++++++++++
  include/linux/mm_inline.h          |  14 +-
  include/linux/mm_types.h           |  21 +
- include/linux/mmzone.h             |  91 ++++
+ include/linux/mmzone.h             |  96 ++++
  include/linux/page-flags.h         |   7 +
  include/linux/sched.h              |   6 +
  include/linux/swap_ops.h           |  12 +
@@ -35,49 +35,50 @@ Signed-off-by: Salman Wahib <sxlmnwb.dev@gmail.com>
  mm/folio.c                         |  17 +
  mm/huge_memory.c                   |   3 +
  mm/khugepaged.c                    |   2 +
- mm/lru_cast/Makefile               |  30 ++
+ mm/lru_cast/Makefile               |  31 ++
  mm/lru_cast/check-layers.sh        |  58 +++
  mm/lru_cast/compat/caps.h          |  72 +++
  mm/lru_cast/compat/kernel.h        | 213 ++++++++
  mm/lru_cast/compat/vmap.h          |  27 +
  mm/lru_cast/control.c              | 209 ++++++++
  mm/lru_cast/control.h              |  15 +
- mm/lru_cast/core/clock.c           | 182 +++++++
- mm/lru_cast/core/core.h            | 223 +++++++++
- mm/lru_cast/core/key.c             | 207 ++++++++
+ mm/lru_cast/core/clock.c           | 224 ++++++++
+ mm/lru_cast/core/core.h            | 225 ++++++++
+ mm/lru_cast/core/inl.h             | 120 +++++
+ mm/lru_cast/core/key.c             | 151 ++++++
  mm/lru_cast/core/prefetch.c        |  76 +++
  mm/lru_cast/core/prefetch.h        |  60 +++
- mm/lru_cast/core/state.c           | 269 ++++++++++
- mm/lru_cast/core/store.c           | 197 ++++++++
+ mm/lru_cast/core/state.c           | 249 +++++++++
+ mm/lru_cast/core/store.c           | 197 +++++++
  mm/lru_cast/core/store.h           |  25 +
- mm/lru_cast/hooks.c                |  28 ++
- mm/lru_cast/policy/balance.c       | 246 ++++++++++
- mm/lru_cast/policy/ghost.c         | 166 +++++++
+ mm/lru_cast/hooks.c                |  28 +
+ mm/lru_cast/policy/balance.c       | 246 +++++++++
+ mm/lru_cast/policy/ghost.c         | 176 +++++++
  mm/lru_cast/policy/params.c        |  70 +++
  mm/lru_cast/policy/policy.h        |  78 +++
  mm/lru_cast/policy/reclaim.c       | 184 +++++++
- mm/lru_cast/policy/ring.c          | 760 +++++++++++++++++++++++++++++
+ mm/lru_cast/policy/ring.c          | 796 +++++++++++++++++++++++++++++
  mm/lru_cast/sysfs.c                | 293 +++++++++++
- mm/lru_cast/tune/cost.c            | 504 +++++++++++++++++++
+ mm/lru_cast/tune/cost.c            | 504 ++++++++++++++++++
  mm/lru_cast/tune/cost.h            |  12 +
  mm/lru_cast/tune/decay.c           |  76 +++
  mm/lru_cast/tune/decay.h           |  14 +
- mm/lru_cast/tune/evidence.c        | 111 +++++
+ mm/lru_cast/tune/evidence.c        | 111 ++++
  mm/lru_cast/tune/evidence.h        |  48 ++
- mm/lru_cast/tune/protect.c         | 213 ++++++++
+ mm/lru_cast/tune/protect.c         | 236 +++++++++
  mm/lru_cast/tune/readahead.c       |  66 +++
  mm/lru_cast/tune/sample.c          |  35 ++
  mm/lru_cast/tune/sample.h          |  25 +
  mm/lru_cast/tune/shape.h           |  60 +++
  mm/lru_cast/tune/share.c           | 105 ++++
  mm/lru_cast/tune/share.h           |  12 +
- mm/lru_cast/tune/sim.c             | 733 ++++++++++++++++++++++++++++
+ mm/lru_cast/tune/sim.c             | 733 ++++++++++++++++++++++++++
  mm/lru_cast/tune/sim.h             |  53 ++
- mm/lru_cast/tune/tune.c            | 475 ++++++++++++++++++
+ mm/lru_cast/tune/tune.c            | 475 +++++++++++++++++
  mm/lru_cast/tune/tune.h            |  97 ++++
- mm/lru_cast/tune/world.c           |  56 +++
+ mm/lru_cast/tune/world.c           |  56 ++
  mm/lru_cast/tune/world.h           |  15 +
- mm/lru_cast/tune/wshare.c          |  82 ++++
+ mm/lru_cast/tune/wshare.c          |  82 +++
  mm/lru_cast/tune/wshare.h          |  21 +
  mm/lru_cast/version.h              |  15 +
  mm/lru_cast/walk/bloom.c           |  65 +++
@@ -85,11 +86,11 @@ Signed-off-by: Salman Wahib <sxlmnwb.dev@gmail.com>
  mm/lru_cast/walk/simd.h            |  27 +
  mm/lru_cast/walk/simd_generic.c    |  34 ++
  mm/lru_cast/walk/simd_x86.c        |  70 +++
- mm/lru_cast/walk/simd_x86_avx2.S   | 170 +++++++
- mm/lru_cast/walk/simd_x86_avx512.S | 220 +++++++++
+ mm/lru_cast/walk/simd_x86_avx2.S   | 170 ++++++
+ mm/lru_cast/walk/simd_x86_avx512.S | 220 ++++++++
  mm/lru_cast/walk/simd_x86_sse2.S   | 158 ++++++
- mm/lru_cast/walk/walk.c            | 307 ++++++++++++
- mm/lru_cast/walk/walk.h            |  28 ++
+ mm/lru_cast/walk/walk.c            | 307 +++++++++++
+ mm/lru_cast/walk/walk.h            |  28 +
  mm/lru_cast/walk/young.h           |  58 +++
  mm/memcontrol.c                    |   1 +
  mm/memory.c                        |  29 +-
@@ -101,9 +102,9 @@ Signed-off-by: Salman Wahib <sxlmnwb.dev@gmail.com>
  mm/rmap.c                          |   3 +
  mm/shmem.c                         |   4 +
  mm/swap.h                          |  18 +
- mm/vmscan.c                        | 291 ++++++++++-
+ mm/vmscan.c                        | 304 ++++++++++-
  mm/workingset.c                    |  27 +
- 83 files changed, 9101 insertions(+), 23 deletions(-)
+ 84 files changed, 9295 insertions(+), 26 deletions(-)
  create mode 100644 include/linux/lru_cast.h
  create mode 100644 mm/lru_cast/Makefile
  create mode 100755 mm/lru_cast/check-layers.sh
@@ -114,6 +115,7 @@ Signed-off-by: Salman Wahib <sxlmnwb.dev@gmail.com>
  create mode 100644 mm/lru_cast/control.h
  create mode 100644 mm/lru_cast/core/clock.c
  create mode 100644 mm/lru_cast/core/core.h
+ create mode 100644 mm/lru_cast/core/inl.h
  create mode 100644 mm/lru_cast/core/key.c
  create mode 100644 mm/lru_cast/core/prefetch.c
  create mode 100644 mm/lru_cast/core/prefetch.h
@@ -164,10 +166,10 @@ Signed-off-by: Salman Wahib <sxlmnwb.dev@gmail.com>
 
 diff --git a/include/linux/lru_cast.h b/include/linux/lru_cast.h
 new file mode 100644
-index 000000000..9cd62e763
+index 000000000..1fc24924c
 --- /dev/null
 +++ b/include/linux/lru_cast.h
-@@ -0,0 +1,459 @@
+@@ -0,0 +1,480 @@
 +/* SPDX-License-Identifier: GPL-2.0 */
 +/*
 + * CAST -- what the rest of the kernel sees (mm/lru_cast/).
@@ -236,6 +238,21 @@ index 000000000..9cd62e763
 +{
 +	return READ_ONCE(lruvec->lru_cast_on);
 +}
++
++/*
++ * too_many_isolated() (mm/vmscan.c) for a CAST lruvec: whether a direct
++ * reclaimer waits instead of isolating more of @type. What is evicted and
++ * faulted straight back frees nothing; it only trades pages between tasks.
++ * So the rule weighs the pages in flight by r, the share of evictions that
++ * came back within the ghosts' window (core/clock.c), and lets the pages
++ * that will come back be at most a batch: with r near 1, a thrash, direct
++ * reclaimers go one at a time and the tasks that fit keep the CPU; with r
++ * near 0, a stream, they all reclaim, each page freed for good. Upstream
++ * weighs the pages against the inactive list, for CAST W, whose size only
++ * happened to follow r.
++ */
++bool lru_cast_too_many_isolated(struct pglist_data *pgdat, int type, unsigned long isolated,
++				bool io_fs);
 +
 +/* what mm/vmscan.c knows of a scan, and the counts handed back */
 +struct lru_cast_scan {
@@ -466,6 +483,12 @@ index 000000000..9cd62e763
 +}
 +
 +static inline bool lru_cast_on(struct lruvec *lruvec)
++{
++	return false;
++}
++
++static inline bool lru_cast_too_many_isolated(struct pglist_data *pgdat, int type,
++					      unsigned long isolated, bool io_fs)
 +{
 +	return false;
 +}
@@ -723,7 +746,7 @@ index f3e5a2fad..33c9268ad 100644
  	struct ma_state mas;
  };
 diff --git a/include/linux/mmzone.h b/include/linux/mmzone.h
-index 94f9c3ff5..7f8a95bd2 100644
+index 94f9c3ff5..ad917e7e2 100644
 --- a/include/linux/mmzone.h
 +++ b/include/linux/mmzone.h
 @@ -24,6 +24,7 @@
@@ -734,7 +757,7 @@ index 94f9c3ff5..7f8a95bd2 100644
  #include <asm/page.h>
  
  /* Free memory management - zoned buddy allocator.  */
-@@ -762,6 +763,74 @@ struct lru_cost {
+@@ -762,6 +763,79 @@ struct lru_cost {
  	unsigned long		last_rotated;
  	unsigned long		last_io;
  };
@@ -798,6 +821,11 @@ index 94f9c3ff5..7f8a95bd2 100644
 +	unsigned long		next;
 +	/* pages evicted so far, written with every eviction */
 +	unsigned long		evict;
++	/*
++	 * by type, pages evicted with a shadow and, of those, pages faulted
++	 * back within the ghosts' window: aged by 1/4 a tick
++	 */
++	unsigned long		shadowed[ANON_AND_FILE], returned[ANON_AND_FILE];
 +	/* the lruvecs' numbers in the node's owner tags (lru_cast.lid) in use */
 +	DECLARE_BITMAP(lids, LRU_CAST_LIDS);
 +	/* ... of those, the numbers of lruvecs whose folios went to another's lists */
@@ -809,7 +837,7 @@ index 94f9c3ff5..7f8a95bd2 100644
  
  struct lruvec {
  	struct list_head		lists[NR_LRU_LISTS];
-@@ -791,6 +860,11 @@ struct lruvec {
+@@ -791,6 +865,11 @@ struct lruvec {
  	struct lru_gen_mm_state		mm_state;
  #endif
  #endif /* CONFIG_LRU_GEN */
@@ -821,7 +849,7 @@ index 94f9c3ff5..7f8a95bd2 100644
  #ifdef CONFIG_MEMCG
  	struct pglist_data *pgdat;
  #endif
-@@ -1535,6 +1609,20 @@ typedef struct pglist_data {
+@@ -1535,6 +1614,20 @@ typedef struct pglist_data {
  
  	atomic_t kswapd_failures;	/* Number of 'reclaimed == 0' runs */
  
@@ -842,7 +870,7 @@ index 94f9c3ff5..7f8a95bd2 100644
  #ifdef CONFIG_COMPACTION
  	int kcompactd_max_order;
  	enum zone_type kcompactd_highest_zoneidx;
-@@ -1599,6 +1687,9 @@ typedef struct pglist_data {
+@@ -1599,6 +1692,9 @@ typedef struct pglist_data {
  	/* lru_gen_folio list */
  	struct lru_gen_memcg memcg_lru;
  #endif
@@ -1195,10 +1223,10 @@ index 75639298e..82d88f96e 100644
  
 diff --git a/mm/lru_cast/Makefile b/mm/lru_cast/Makefile
 new file mode 100644
-index 000000000..6d75a7d83
+index 000000000..c16ca1456
 --- /dev/null
 +++ b/mm/lru_cast/Makefile
-@@ -0,0 +1,30 @@
+@@ -0,0 +1,31 @@
 +# SPDX-License-Identifier: GPL-2.0
 +#
 +# CAST. Reached from mm/Makefile via obj-$(CONFIG_LRU_CAST) += lru_cast/.
@@ -1210,6 +1238,7 @@ index 000000000..6d75a7d83
 +# (check-layers.sh):
 +#
 +#	core/	core.h		state words, the eviction clock, keys, prefetch
++#		inl.h		its inline forms, for policy/'s hot loops
 +#	policy/	policy.h	the main cache inside reclaim, its parameters
 +#	walk/	walk.h		young bits of mapped pages
 +#	tune/	tune.h		the controllers that set the parameters
@@ -1231,7 +1260,7 @@ index 000000000..6d75a7d83
 +obj-y	+= hooks.o control.o sysfs.o
 diff --git a/mm/lru_cast/check-layers.sh b/mm/lru_cast/check-layers.sh
 new file mode 100755
-index 000000000..bbcd6acf3
+index 000000000..81214251c
 --- /dev/null
 +++ b/mm/lru_cast/check-layers.sh
 @@ -0,0 +1,58 @@
@@ -1241,7 +1270,7 @@ index 000000000..bbcd6acf3
 +# CAST: check that each component includes only what it may.
 +#
 +#	core/	nothing of CAST's but compat/
-+#	policy/	core/core.h
++#	policy/	core/core.h, core/inl.h (core's inline forms for its hot loops)
 +#	walk/	core/core.h
 +#	tune/	core/core.h, policy/policy.h
 +#	.	every component's public header, nothing inside a component
@@ -1264,7 +1293,7 @@ index 000000000..bbcd6acf3
 +	case "$1" in
 +	compat/*)	return 1 ;;
 +	core/*)		deps="" ;;
-+	policy/*)	deps="core/core.h" ;;
++	policy/*)	deps="core/core.h core/inl.h" ;;
 +	walk/*)		deps="core/core.h" ;;
 +	tune/*)		deps="core/core.h policy/policy.h" ;;
 +	*)		deps="$public" ;;
@@ -1861,10 +1890,10 @@ index 000000000..c9c67ed18
 +#endif /* _MM_LRU_CAST_CONTROL_H */
 diff --git a/mm/lru_cast/core/clock.c b/mm/lru_cast/core/clock.c
 new file mode 100644
-index 000000000..47bcc1045
+index 000000000..777830bb5
 --- /dev/null
 +++ b/mm/lru_cast/core/clock.c
-@@ -0,0 +1,182 @@
+@@ -0,0 +1,224 @@
 +// SPDX-License-Identifier: GPL-2.0
 +/*
 + * CAST -- the clock.
@@ -1896,6 +1925,7 @@ index 000000000..47bcc1045
 +#include <linux/ktime.h>
 +#include <linux/memory_hotplug.h>
 +#include <linux/percpu.h>
++#include <linux/swap.h>
 +#include <linux/sysfs.h>
 +#include "core/core.h"
 +
@@ -1938,6 +1968,12 @@ index 000000000..47bcc1045
 +	lru_cast_hook_installed(nr, size);
 +	if (installed >= (long)next &&
 +	    try_cmpxchg(&c->next, &next, installed + max(size / 4, 1UL))) {
++		int type;
++
++		for (type = 0; type < ANON_AND_FILE; type++) {
++			data_race(c->shadowed[type] -= c->shadowed[type] / 4);
++			data_race(c->returned[type] -= c->returned[type] / 4);
++		}
 +		WRITE_ONCE(c->tick, c->tick + 1);
 +		atomic_long_inc(&lru_cast_ticks);
 +		lru_cast_queue_work(&lru_cast_stale_work);
@@ -2026,6 +2062,37 @@ index 000000000..47bcc1045
 +	lru_cast_clock_count(pgdat->node_id, nr);
 +}
 +
++/* @nr pages of @type evicted from @pgdat with a shadow */
++void lru_cast_shadowed(struct pglist_data *pgdat, int type, unsigned long nr)
++{
++	data_race(pgdat->lru_cast_clock.shadowed[type] += nr);
++}
++
++/* @nr pages of @type faulted back into @pgdat within the ghosts' window */
++void lru_cast_returned(struct pglist_data *pgdat, int type, unsigned long nr)
++{
++	data_race(pgdat->lru_cast_clock.returned[type] += nr);
++}
++
++/*
++ * Too many of a type's pages isolated for a direct reclaimer to take
++ * more (lru_cast.h): of the pages in flight, those that will come back,
++ * the share r of evictions faulted back within the ghosts' window, would
++ * be more than a batch; an eighth of one for a caller that may do IO and
++ * FS, as upstream gives GFP_NOIO and GFP_NOFS callers eight times the
++ * room. Isolated * r > batch, without the division.
++ */
++bool lru_cast_too_many_isolated(struct pglist_data *pgdat, int type, unsigned long isolated,
++				bool io_fs)
++{
++	struct lru_cast_clock *c = &pgdat->lru_cast_clock;
++	unsigned long out = data_race(c->shadowed[type]);
++	unsigned long back = min(data_race(c->returned[type]), out);
++	unsigned long batch = io_fs ? SWAP_CLUSTER_MAX / 8 : SWAP_CLUSTER_MAX;
++
++	return isolated * back > batch * out;
++}
++
 +unsigned long lru_cast_ticks_now(void)
 +{
 +	return atomic_long_read(&lru_cast_ticks);
@@ -2038,10 +2105,14 @@ index 000000000..47bcc1045
 +	for_each_node_state(nid, N_MEMORY) {
 +		struct pglist_data *pgdat = NODE_DATA(nid);
 +
++		struct lru_cast_clock *c = &pgdat->lru_cast_clock;
++
 +		len += sysfs_emit_at(buf, len, "node%d installed %ld evicted %lu tick %lu\n", nid,
-+				     atomic_long_read(&pgdat->lru_cast_clock.installed),
-+				     data_race(pgdat->lru_cast_clock.evict),
-+				     READ_ONCE(pgdat->lru_cast_clock.tick));
++				     atomic_long_read(&c->installed), data_race(c->evict),
++				     READ_ONCE(c->tick));
++		len += sysfs_emit_at(buf, len, "node%d returned anon %lu/%lu file %lu/%lu\n", nid,
++				     data_race(c->returned[0]), data_race(c->shadowed[0]),
++				     data_race(c->returned[1]), data_race(c->shadowed[1]));
 +	}
 +	return len + sysfs_emit_at(buf, len, "stale marked %ld us %llu\n",
 +				   atomic_long_read(&lru_cast_stale_marked),
@@ -2049,10 +2120,10 @@ index 000000000..47bcc1045
 +}
 diff --git a/mm/lru_cast/core/core.h b/mm/lru_cast/core/core.h
 new file mode 100644
-index 000000000..4c391e713
+index 000000000..bf2265e01
 --- /dev/null
 +++ b/mm/lru_cast/core/core.h
-@@ -0,0 +1,223 @@
+@@ -0,0 +1,225 @@
 +/* SPDX-License-Identifier: GPL-2.0 */
 +/*
 + * CAST -- the core: what a folio's reads were, and when.
@@ -2238,6 +2309,8 @@ index 000000000..4c391e713
 +/* clock.c */
 +void lru_cast_installed(struct folio *folio, unsigned long nr);
 +void lru_cast_released(int nid, unsigned long nr);
++void lru_cast_shadowed(struct pglist_data *pgdat, int type, unsigned long nr);
++void lru_cast_returned(struct pglist_data *pgdat, int type, unsigned long nr);
 +unsigned long lru_cast_ticks_now(void);		/* every node's ticks, summed */
 +int lru_cast_clock_show(char *buf);
 +
@@ -2276,12 +2349,138 @@ index 000000000..4c391e713
 +void lru_cast_hook_installed(long nr, unsigned long size);
 +
 +#endif /* _MM_LRU_CAST_CORE_H */
+diff --git a/mm/lru_cast/core/inl.h b/mm/lru_cast/core/inl.h
+new file mode 100644
+index 000000000..14b8c4130
+--- /dev/null
++++ b/mm/lru_cast/core/inl.h
+@@ -0,0 +1,120 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++/*
++ * CAST -- the inline forms of core's functions that policy/ calls in its
++ * hot loops, for a sweep reads every word of a block. The code is core's,
++ * and so are the tables and the array it reads: policy/ includes this
++ * header and never the ones inside core/ (store.h).
++ */
++#ifndef _MM_LRU_CAST_CORE_INL_H
++#define _MM_LRU_CAST_CORE_INL_H
++
++#include "core/core.h"
++
++/*
++ * The tables of lru_cast_key_res() (core/key.c), for its inline form below:
++ * a sweep calls it for every word it reads. The weights of a word's reads at
++ * each decay, its gap codes read as an index: [0] the newest's, 1, [1 + g1]
++ * the one before's, [9 + 8 g1 + g2] the one before that's.
++ */
++#define LRU_CAST_WTAB		(1 + 8 + 64)
++extern u32 lru_cast_wtab[LRU_CAST_LE_MAX + 1][LRU_CAST_WTAB];
++extern const u8 lru_cast_log2m[256];
++
++/* tau / H in Q16 half-lives per tick: 2^(le - 10) */
++static inline u64 lru_cast_dq(int le)
++{
++	return le ? 1ULL << (le + 6) : 0;
++}
++
++/* 256 log2(v / 2^16) */
++static __always_inline s64 lru_cast_log2q8(u64 v)
++{
++	int msb = fls64(v) - 1;
++	u32 m = (msb >= 8 ? v >> (msb - 8) : v << (8 - msb)) & 255;
++
++	return ((s64)msb - 16) * 256 + lru_cast_log2m[m];
++}
++
++/* the bucket of a state word: 2^-@res half-lives of the key, or n */
++static __always_inline long lru_cast_key_res_inl(u32 w, unsigned long tick, int le, int res)
++{
++	u32 n = w >> 24, g1 = (w >> LRU_CAST_W_GAP) & 7, g2 = (w >> (LRU_CAST_W_GAP + 3)) & 7;
++	u8 age0 = n ? lru_cast_age(w, tick) : 0;
++	unsigned long last = tick >= age0 ? tick - age0 : 0;
++	const u32 *t;
++	u64 s, wt;
++
++	if (!le)
++		return n;
++	if (!n)
++		return LONG_MIN;
++	/*
++	 * Stale (core.h), the reads all at the last, taken at the start of its
++	 * unit: as fixed as any other key. Deep, older than any: the count alone.
++	 */
++	if (lru_cast_stale(w)) {
++		s64 lift = lru_cast_log2q8((u64)n << 16);
++
++		if (lru_cast_deep(w))
++			return lift >> (8 - res);
++		last = lru_cast_stale_last(w, tick);
++		return ((s64)((last * lru_cast_dq(le)) >> 8) + lift) >> (8 - res);
++	}
++	/*
++	 * The key is the same taken at any time; taken at the last read, its
++	 * weight is 1 and the sum cannot underflow however long ago that was.
++	 * The reads before it are the middles of the gaps their codes allow
++	 * (lru_cast_gap2()), their weights looked up.
++	 */
++	/*
++	 * Read once, the weights are the newest's alone, 1 (65536): the log of
++	 * it is 0, and nothing needs looking up. Most words in a sweep are.
++	 */
++	if (n == 1)
++		return (s64)((last * lru_cast_dq(le)) >> 8) >> (8 - res);
++	t = lru_cast_wtab[min(le, LRU_CAST_LE_MAX)];
++	s = wt = t[0];
++	if (n >= 2) {
++		wt = t[1 + g1];
++		s += wt;
++	}
++	if (n >= 3) {
++		wt = t[9 + 8 * g1 + g2];
++		s += wt;
++	}
++	if (n > 3)
++		s += (u64)(n - 3) * wt;		/* older reads count at the oldest stamp */
++	return ((s64)((last * lru_cast_dq(le)) >> 8) + lru_cast_log2q8(s)) >> (8 - res);
++}
++
++#include "core/store.h"
++
++/*
++ * The first PFN in [@pfn, @end) whose owner tag is @owner, its state word
++ * in *@w; @end if there is none. A section without words is passed over.
++ */
++static __always_inline unsigned long lru_cast_find_owner_inl(unsigned long pfn, unsigned long end,
++							    u32 owner, u32 *w)
++{
++	owner <<= LRU_CAST_W_OWNER;
++	while (pfn < end) {
++		unsigned long sec_end = min(end, section_nr_to_pfn(pfn_to_section_nr(pfn) + 1));
++		u32 *p = lru_cast_word(pfn);
++
++		if (!p) {
++			pfn = sec_end;
++			continue;
++		}
++		for (; pfn < sec_end; pfn++, p++) {
++			u32 v = READ_ONCE(*p);
++
++			if ((v & LRU_CAST_OWNER_MASK) == owner) {
++				*w = v & ~LRU_CAST_OWNER_MASK;
++				return pfn;
++			}
++		}
++	}
++	return end;
++}
++
++#endif /* _MM_LRU_CAST_CORE_INL_H */
 diff --git a/mm/lru_cast/core/key.c b/mm/lru_cast/core/key.c
 new file mode 100644
-index 000000000..7e32f5d8d
+index 000000000..11490ff95
 --- /dev/null
 +++ b/mm/lru_cast/core/key.c
-@@ -0,0 +1,207 @@
+@@ -0,0 +1,151 @@
 +// SPDX-License-Identifier: GPL-2.0
 +/*
 + * CAST -- the key of a state word.
@@ -2312,6 +2511,7 @@ index 000000000..7e32f5d8d
 + * Pure arithmetic on a state word and a clock.
 + */
 +#include "core/core.h"
++#include "core/inl.h"
 +
 +/* 2^(-f/256), Q16 */
 +static const u32 lru_cast_exp2n[256] = {
@@ -2350,7 +2550,7 @@ index 000000000..7e32f5d8d
 +};
 +
 +/* 256 * log2(1 + m/256) */
-+static const u8 lru_cast_log2m[256] = {
++const u8 lru_cast_log2m[256] = {
 +	0, 1, 3, 4, 6, 7, 9, 10, 11, 13, 14, 16,
 +	17, 18, 20, 21, 22, 24, 25, 26, 28, 29, 30, 32,
 +	33, 34, 36, 37, 38, 40, 41, 42, 44, 45, 46, 47,
@@ -2375,12 +2575,6 @@ index 000000000..7e32f5d8d
 +	253, 254, 255, 255,
 +};
 +
-+/* tau / H in Q16 half-lives per tick: 2^(le - 10) */
-+static inline u64 lru_cast_dq(int le)
-+{
-+	return le ? 1ULL << (le + 6) : 0;
-+}
-+
 +/* 2^-(age tau / H), Q16, the age in half ticks */
 +static u64 lru_cast_weight(u32 age2, int le)
 +{
@@ -2401,23 +2595,12 @@ index 000000000..7e32f5d8d
 +	return c ? 3 * (1U << c) - 1 : 1;
 +}
 +
-+/* 256 log2(v / 2^16) */
-+static __always_inline s64 lru_cast_log2q8(u64 v)
-+{
-+	int msb = fls64(v) - 1;
-+	u32 m = (msb >= 8 ? v >> (msb - 8) : v << (8 - msb)) & 255;
-+
-+	return ((s64)msb - 16) * 256 + lru_cast_log2m[m];
-+}
-+
 +/*
 + * The weights of a word's reads at each decay, its gap codes read as an
 + * index: [0] the newest's, 1, [1 + g1] the one before's, [9 + 8 g1 + g2]
 + * the one before that's (lru_cast_key_res()). Set up once, at boot.
 + */
-+#define LRU_CAST_WTAB		(1 + 8 + 64)
-+
-+static u32 lru_cast_wtab[LRU_CAST_LE_MAX + 1][LRU_CAST_WTAB] __read_mostly;
++u32 lru_cast_wtab[LRU_CAST_LE_MAX + 1][LRU_CAST_WTAB] __read_mostly;
 +
 +void __init lru_cast_key_init(void)
 +{
@@ -2440,47 +2623,7 @@ index 000000000..7e32f5d8d
 +/* the bucket of a state word: 2^-@res half-lives of the key, or n */
 +long lru_cast_key_res(u32 w, unsigned long tick, int le, int res)
 +{
-+	u32 n = w >> 24, g1 = (w >> LRU_CAST_W_GAP) & 7, g2 = (w >> (LRU_CAST_W_GAP + 3)) & 7;
-+	u8 age0 = n ? lru_cast_age(w, tick) : 0;
-+	unsigned long last = tick >= age0 ? tick - age0 : 0;
-+	const u32 *t;
-+	u64 s, wt;
-+
-+	if (!le)
-+		return n;
-+	if (!n)
-+		return LONG_MIN;
-+	/*
-+	 * Stale (core.h), the reads all at the last, taken at the start of its
-+	 * unit: as fixed as any other key. Deep, older than any: the count alone.
-+	 */
-+	if (lru_cast_stale(w)) {
-+		s64 lift = lru_cast_log2q8((u64)n << 16);
-+
-+		if (lru_cast_deep(w))
-+			return lift >> (8 - res);
-+		last = lru_cast_stale_last(w, tick);
-+		return ((s64)((last * lru_cast_dq(le)) >> 8) + lift) >> (8 - res);
-+	}
-+	/*
-+	 * The key is the same taken at any time; taken at the last read, its
-+	 * weight is 1 and the sum cannot underflow however long ago that was.
-+	 * The reads before it are the middles of the gaps their codes allow
-+	 * (lru_cast_gap2()), their weights looked up.
-+	 */
-+	t = lru_cast_wtab[min(le, LRU_CAST_LE_MAX)];
-+	s = wt = t[0];
-+	if (n >= 2) {
-+		wt = t[1 + g1];
-+		s += wt;
-+	}
-+	if (n >= 3) {
-+		wt = t[9 + 8 * g1 + g2];
-+		s += wt;
-+	}
-+	if (n > 3)
-+		s += (u64)(n - 3) * wt;		/* older reads count at the oldest stamp */
-+	return ((s64)((last * lru_cast_dq(le)) >> 8) + lru_cast_log2q8(s)) >> (8 - res);
++	return lru_cast_key_res_inl(w, tick, le, res);
 +}
 +
 +long lru_cast_window_lo(unsigned long tick, int le)
@@ -2639,10 +2782,10 @@ index 000000000..a3c067a78
 +#endif /* _MM_LRU_CAST_CORE_PREFETCH_H */
 diff --git a/mm/lru_cast/core/state.c b/mm/lru_cast/core/state.c
 new file mode 100644
-index 000000000..d33df9d12
+index 000000000..84f4ee71f
 --- /dev/null
 +++ b/mm/lru_cast/core/state.c
-@@ -0,0 +1,269 @@
+@@ -0,0 +1,249 @@
 +// SPDX-License-Identifier: GPL-2.0
 +/*
 + * CAST -- the per-folio state word.
@@ -2666,6 +2809,7 @@ index 000000000..d33df9d12
 + */
 +#include "core/core.h"
 +#include "core/store.h"
++#include "core/inl.h"
 +
 +u32 lru_cast_read(struct folio *folio)
 +{
@@ -2697,31 +2841,10 @@ index 000000000..d33df9d12
 +	return (old & LRU_CAST_OWNER_MASK) >> LRU_CAST_W_OWNER;
 +}
 +
-+/*
-+ * The first PFN in [@pfn, @end) whose owner tag is @owner, its state word
-+ * in *@w; @end if there is none. A section without words is passed over.
-+ */
++/* the out-of-line form of lru_cast_find_owner_inl() (core/inl.h) */
 +unsigned long lru_cast_find_owner(unsigned long pfn, unsigned long end, u32 owner, u32 *w)
 +{
-+	owner <<= LRU_CAST_W_OWNER;
-+	while (pfn < end) {
-+		unsigned long sec_end = min(end, section_nr_to_pfn(pfn_to_section_nr(pfn) + 1));
-+		u32 *p = lru_cast_word(pfn);
-+
-+		if (!p) {
-+			pfn = sec_end;
-+			continue;
-+		}
-+		for (; pfn < sec_end; pfn++, p++) {
-+			u32 v = READ_ONCE(*p);
-+
-+			if ((v & LRU_CAST_OWNER_MASK) == owner) {
-+				*w = v & ~LRU_CAST_OWNER_MASK;
-+				return pfn;
-+			}
-+		}
-+	}
-+	return end;
++	return lru_cast_find_owner_inl(pfn, end, owner, w);
 +}
 +
 +/*
@@ -3434,10 +3557,10 @@ index 000000000..12e6906a3
 +}
 diff --git a/mm/lru_cast/policy/ghost.c b/mm/lru_cast/policy/ghost.c
 new file mode 100644
-index 000000000..2bf5b19dd
+index 000000000..7e0c39e8d
 --- /dev/null
 +++ b/mm/lru_cast/policy/ghost.c
-@@ -0,0 +1,166 @@
+@@ -0,0 +1,176 @@
 +// SPDX-License-Identifier: GPL-2.0
 +/*
 + * CAST -- the history of evicted folios.
@@ -3513,8 +3636,8 @@ index 000000000..2bf5b19dd
 +	*w = lru_cast_history_unpack(v);
 +}
 +
-+/* the shadow's history if it is still worth having, else false */
-+static bool lru_cast_ghost(void *shadow, int nid, int type, u32 *w, bool *workingset)
++/* the shadow is CAST's, left on this node within the ghosts' window: its history read out */
++static bool lru_cast_ghost_recent(void *shadow, int nid, int type, u32 *w, bool *workingset)
 +{
 +	u16 tick;
 +	int snid;
@@ -3523,18 +3646,25 @@ index 000000000..2bf5b19dd
 +	if (!lru_cast_shadow(shadow))
 +		return false;
 +	lru_cast_unpack(shadow, w, &tick, &snid, workingset);
-+	if (snid != nid || !node_online(snid) || !(*w >> 24))
++	if (snid != nid || !node_online(snid))
 +		return false;
 +	return (u16)(lru_cast_tick(NODE_DATA(snid), type) - tick) <= LRU_CAST_GHOST_TICKS;
++}
++
++/* the shadow's history if it is still worth having, else false */
++static bool lru_cast_ghost(void *shadow, int nid, int type, u32 *w, bool *workingset)
++{
++	return lru_cast_ghost_recent(shadow, nid, type, w, workingset) && (*w >> 24);
 +}
 +
 +void *lru_cast_eviction(struct folio *folio)
 +{
 +	struct pglist_data *pgdat = folio_pgdat(folio);
++	int type = folio_is_file_lru(folio);
 +	u32 w = lru_cast_read(folio);
 +
-+	return lru_cast_pack(w, lru_cast_tick(pgdat, folio_is_file_lru(folio)), pgdat->node_id,
-+			  (w >> 24) > 1);
++	lru_cast_shadowed(pgdat, type, folio_nr_pages(folio));
++	return lru_cast_pack(w, lru_cast_tick(pgdat, type), pgdat->node_id, (w >> 24) > 1);
 +}
 +
 +bool lru_cast_test_recent(void *shadow, bool file, bool *workingset)
@@ -3558,7 +3688,10 @@ index 000000000..2bf5b19dd
 +	rcu_read_lock();
 +	lruvec = folio_lruvec(folio);
 +	mod_lruvec_state(lruvec, WORKINGSET_REFAULT_BASE + type, nr);
-+	if (!lru_cast_ghost(shadow, folio_nid(folio), type, &w, &workingset))
++	if (!lru_cast_ghost_recent(shadow, folio_nid(folio), type, &w, &workingset))
++		goto out;
++	lru_cast_returned(folio_pgdat(folio), type, nr);	/* the eviction undone */
++	if (!(w >> 24))
 +		goto out;
 +
 +	/*
@@ -3956,10 +4089,10 @@ index 000000000..22e9c4962
 +}
 diff --git a/mm/lru_cast/policy/ring.c b/mm/lru_cast/policy/ring.c
 new file mode 100644
-index 000000000..6dfb642d4
+index 000000000..14e3265be
 --- /dev/null
 +++ b/mm/lru_cast/policy/ring.c
-@@ -0,0 +1,760 @@
+@@ -0,0 +1,796 @@
 +// SPDX-License-Identifier: GPL-2.0
 +/*
 + * CAST -- keys, and M's lowest found by a sweep.
@@ -4018,10 +4151,10 @@ index 000000000..6dfb642d4
 + * Everything here runs under the lruvec's lru_lock but the work.
 + */
 +#include <linux/hash.h>
-+#include <linux/sort.h>
 +#include <linux/xarray.h>
 +#include <linux/workqueue.h>
 +#include "policy/policy.h"
++#include "core/inl.h"
 +
 +#define LRU_CAST_RES		4	/* sixteenths of a half-life */
 +#define LRU_CAST_SWEEP_MAX		4096	/* frames a sweep reads at most */
@@ -4367,18 +4500,56 @@ index 000000000..6dfb642d4
 +	sw_add(SW_GATE, 1);
 +}
 +
-+static int lru_cast_cmp_cand(const void *a, const void *b)
++/*
++ * The candidates, a max-heap on the key, in ascending key order: the sort-down
++ * of a heapsort. The heap is already built, and sort() would call a compare
++ * function for each of the n log n steps.
++ */
++static void lru_cast_cand_sort(struct lru_cast_cand *a, unsigned int n)
 +{
-+	long x = ((const struct lru_cast_cand *)a)->key, y = ((const struct lru_cast_cand *)b)->key;
++	unsigned int e;
 +
-+	return x < y ? -1 : x > y;
++	for (e = n; e-- > 1;) {
++		struct lru_cast_cand x = a[e];
++		unsigned int i = 0;
++
++		a[e] = a[0];
++		for (;;) {
++			unsigned int l = 2 * i + 1, m = l;
++
++			if (l >= e)
++				break;
++			if (l + 1 < e && a[l + 1].key > a[l].key)
++				m = l + 1;
++			if (a[m].key <= x.key)
++				break;
++			a[i] = a[m];
++			i = m;
++		}
++		a[i] = x;
++	}
 +}
 +
-+static int lru_cast_cmp_long(const void *a, const void *b)
++/*
++ * The @k-th smallest of the @n keys in @a (k < n), as sort() would put it at
++ * a[k]; @a is left as it is. Only the k + 1 smallest are kept, in order.
++ */
++static long lru_cast_kth(const long *a, unsigned int n, unsigned int k)
 +{
-+	long x = *(const long *)a, y = *(const long *)b;
++	long t[((LRU_CAST_SAMPLES - 1) >> LRU_CAST_TAU_SHIFT) + 1];
++	unsigned int i, j, m = 0;
 +
-+	return x < y ? -1 : x > y;
++	for (i = 0; i < n; i++) {
++		long v = a[i];
++
++		if (m > k && v >= t[k])
++			continue;
++		j = m < k + 1 ? m++ : k;
++		for (; j && t[j - 1] > v; j--)
++			t[j] = t[j - 1];
++		t[j] = v;
++	}
++	return t[k];
 +}
 +
 +/* the candidates as a max-heap on the key: one more in, the highest out if full */
@@ -4468,8 +4639,7 @@ index 000000000..6dfb642d4
 +	k->seen = 0;
 +	if (n < LRU_CAST_PROBE_MIN)
 +		return;
-+	sort(k->sample, n, sizeof(long), lru_cast_cmp_long, NULL);
-+	k->tau = k->sample[(n - 1) >> LRU_CAST_TAU_SHIFT];
++	k->tau = lru_cast_kth(k->sample, n, (n - 1) >> LRU_CAST_TAU_SHIFT);
 +	k->tau_ok = true;
 +	sw_add(SW_PROBED, 1);
 +}
@@ -4509,8 +4679,7 @@ index 000000000..6dfb642d4
 +			if (k->seen) {
 +				unsigned int m = min_t(unsigned long, k->seen, LRU_CAST_SAMPLES);
 +
-+				sort(k->sample, m, sizeof(long), lru_cast_cmp_long, NULL);
-+				k->tau = k->sample[(m - 1) >> LRU_CAST_TAU_SHIFT];
++				k->tau = lru_cast_kth(k->sample, m, (m - 1) >> LRU_CAST_TAU_SHIFT);
 +				k->tau_ok = true;
 +				k->seen = 0;
 +			}
@@ -4528,7 +4697,7 @@ index 000000000..6dfb642d4
 +			if (k->cursor == bstart)
 +				clean = b;
 +			lim = min(bend, k->cursor + budget - frames);
-+			pfn = lru_cast_find_owner(k->cursor, lim, owner, &w);
++			pfn = lru_cast_find_owner_inl(k->cursor, lim, owner, &w);
 +			frames += pfn - k->cursor;
 +			k->cursor = pfn;
 +			if (pfn >= lim) {
@@ -4548,7 +4717,7 @@ index 000000000..6dfb642d4
 +		if (!(w >> 24))
 +			continue;
 +		words++;
-+		key = lru_cast_rank(lru_cast_key_res(w, tick, le, LRU_CAST_RES), pfn, w);
++		key = lru_cast_rank(lru_cast_key_res_inl(w, tick, le, LRU_CAST_RES), pfn, w);
 +		/* a reservoir sample of the pass's keys */
 +		if (k->seen < LRU_CAST_SAMPLES) {
 +			k->sample[k->seen] = key;
@@ -4561,7 +4730,7 @@ index 000000000..6dfb642d4
 +		k->seen++;
 +		lru_cast_heap_put(k, pfn, key, w);
 +	}
-+	sort(k->cand, k->ncand, sizeof(k->cand[0]), lru_cast_cmp_cand, NULL);
++	lru_cast_cand_sort(k->cand, k->ncand);
 +	sw_add(SW_SWEEPS, 1);
 +	sw_add(SW_FRAMES, frames);
 +	sw_add(SW_WORDS, words);
@@ -5822,10 +5991,10 @@ index 000000000..9aa141ad0
 +#endif /* _MM_LRU_CAST_TUNE_EVIDENCE_H */
 diff --git a/mm/lru_cast/tune/protect.c b/mm/lru_cast/tune/protect.c
 new file mode 100644
-index 000000000..5d51f9083
+index 000000000..e4a28303f
 --- /dev/null
 +++ b/mm/lru_cast/tune/protect.c
-@@ -0,0 +1,213 @@
+@@ -0,0 +1,236 @@
 +// SPDX-License-Identifier: GPL-2.0
 +/*
 + * CAST -- catching every read of a sampled mapped page.
@@ -5845,10 +6014,16 @@ index 000000000..5d51f9083
 + * only the pages that faulted in between -- or had a read recorded by the
 + * main cache -- are in it. The TLB is flushed once a batch, per mm, not per
 + * page: a flush per page was an IPI per page to the CPUs running the mm.
-+ * Until the flush a stale entry lets a read through without its fault --
-+ * one read the sample misses, nothing more, as the PTE only grew stricter. A page touched again within delta faults once:
-+ * the model's finding is that this loses nothing, and it keeps the faults
-+ * to about 0.6% of accesses.
++ * Until the flush a stale entry lets a read through without its fault, one
++ * read the sample misses; and the rest of the kernel must know the entry
++ * may be there. A PROT_NONE PTE is taken as cached only while its mm has a
++ * flush pending (pte_accessible()): unmapped without, by reclaim or
++ * migration, the page would be freed with no flush and read on through
++ * the stale entry by its next owner's data. So the batch holds each mm's
++ * tlb_flush_pending raised from before its first PTE is made PROT_NONE
++ * until its flush, as change_protection() does for NUMA balancing. A page
++ * touched again within delta faults once: the model's finding is that this
++ * loses nothing, and it keeps the faults to about 0.6% of accesses.
 + *
 + * Only while NUMA balancing is off -- a single node, or switched off: then
 + * every hinting fault is CAST's. With it on, no page is protected and the
@@ -5878,26 +6053,42 @@ index 000000000..5d51f9083
 +	int n;
 +};
 +
++/* each mm flushed, and only then its flush no longer pending */
 +static void lru_cast_prot_flush_all(struct lru_cast_prot_flush *f)
 +{
 +	while (f->n) {
 +		struct mm_struct *mm = f->mm[--f->n];
 +
 +		flush_tlb_mm(mm);
++		dec_tlb_flush_pending(mm);
 +		mmdrop(mm);
 +	}
 +}
 +
-+static void lru_cast_prot_flush_add(struct lru_cast_prot_flush *f, struct mm_struct *mm)
++static bool lru_cast_prot_flush_has(struct lru_cast_prot_flush *f, struct mm_struct *mm)
 +{
 +	int i;
 +
 +	for (i = 0; i < f->n; i++)
 +		if (f->mm[i] == mm)
-+			return;
-+	if (f->n == LRU_CAST_PROT_MMS)
++			return true;
++	return false;
++}
++
++/* room for @mm, the others flushed if there is none: before the PTL is taken */
++static void lru_cast_prot_flush_room(struct lru_cast_prot_flush *f, struct mm_struct *mm)
++{
++	if (f->n == LRU_CAST_PROT_MMS && !lru_cast_prot_flush_has(f, mm))
 +		lru_cast_prot_flush_all(f);
++}
++
++/* @mm's flush pending, before the first of its PTEs is made PROT_NONE */
++static void lru_cast_prot_flush_add(struct lru_cast_prot_flush *f, struct mm_struct *mm)
++{
++	if (lru_cast_prot_flush_has(f, mm))
++		return;
 +	mmgrab(mm);
++	inc_tlb_flush_pending(mm);
 +	f->mm[f->n++] = mm;
 +}
 +
@@ -5944,6 +6135,7 @@ index 000000000..5d51f9083
 +	    (vma->vm_flags & (VM_IO | VM_PFNMAP | VM_MIXEDMAP)))
 +		return true;
 +
++	lru_cast_prot_flush_room(arg, vma->vm_mm);
 +	lru_cast_mmu_range_init(&range, vma->vm_mm, address,
 +			     min(vma->vm_end, address + folio_size(folio)));
 +	mmu_notifier_invalidate_range_start(&range);
@@ -5955,6 +6147,8 @@ index 000000000..5d51f9083
 +		old = ptep_get(pvmw.pte);
 +		if (!pte_present(old) || pte_protnone(old))
 +			continue;
++		if (!armed)	/* under the PTL, before the PTE changes: inc_tlb_flush_pending() */
++			lru_cast_prot_flush_add(arg, vma->vm_mm);
 +		old = ptep_modify_prot_start(vma, pvmw.address, pvmw.pte);
 +		new = pte_modify(old, PAGE_NONE);
 +		ptep_modify_prot_commit(vma, pvmw.address, pvmw.pte, old, new);
@@ -5962,8 +6156,6 @@ index 000000000..5d51f9083
 +		armed = true;
 +	}
 +	mmu_notifier_invalidate_range_end(&range);
-+	if (armed)
-+		lru_cast_prot_flush_add(arg, vma->vm_mm);
 +	return true;
 +}
 +
@@ -7960,7 +8152,7 @@ index 000000000..ac9d33c02
 +#endif /* _MM_LRU_CAST_TUNE_WSHARE_H */
 diff --git a/mm/lru_cast/version.h b/mm/lru_cast/version.h
 new file mode 100644
-index 000000000..e3bdabd4d
+index 000000000..f1eb1c78e
 --- /dev/null
 +++ b/mm/lru_cast/version.h
 @@ -0,0 +1,15 @@
@@ -7976,7 +8168,7 @@ index 000000000..e3bdabd4d
 +#define LRU_CAST_PROGNAME	"lru_cast"
 +#define LRU_CAST_AUTHOR	"Masahito Suzuki"
 +
-+#define LRU_CAST_VERSION	"0.2.8"
++#define LRU_CAST_VERSION	"0.2.9"
 +
 +#endif /* _MM_LRU_CAST_VERSION_H */
 diff --git a/mm/lru_cast/walk/bloom.c b/mm/lru_cast/walk/bloom.c
@@ -9905,7 +10097,7 @@ index 90a551a88..a63d05822 100644
  {
  	return -EINVAL;
 diff --git a/mm/vmscan.c b/mm/vmscan.c
-index f11491ee9..55f4521f4 100644
+index f11491ee9..1eae4ba57 100644
 --- a/mm/vmscan.c
 +++ b/mm/vmscan.c
 @@ -148,6 +148,9 @@ struct scan_control {
@@ -10075,7 +10267,50 @@ index f11491ee9..55f4521f4 100644
  /**
   * folio_isolate_lru() - Try to isolate a folio from its LRU list.
   * @folio: Folio to isolate from its LRU list.
-@@ -2011,8 +2126,12 @@ static unsigned long shrink_inactive_list(unsigned long nr_to_scan,
+@@ -1819,9 +1934,10 @@ bool folio_isolate_lru(struct folio *folio)
+  * the LRU list will go small and be scanned faster than necessary, leading to
+  * unnecessary swapping, thrashing and OOM.
+  */
+-static bool too_many_isolated(struct pglist_data *pgdat, int file,
++static bool too_many_isolated(struct lruvec *lruvec, int file,
+ 		struct scan_control *sc)
+ {
++	struct pglist_data *pgdat = lruvec_pgdat(lruvec);
+ 	unsigned long inactive, isolated;
+ 	bool too_many;
+ 
+@@ -1838,6 +1954,12 @@ static bool too_many_isolated(struct pglist_data *pgdat, int file,
+ 		inactive = node_page_state(pgdat, NR_INACTIVE_ANON);
+ 		isolated = node_page_state(pgdat, NR_ISOLATED_ANON);
+ 	}
++	/* CAST weighs the pages in flight by how many will come back (lru_cast.h) */
++	if (lru_cast_on(lruvec)) {
++		too_many = lru_cast_too_many_isolated(pgdat, file, isolated,
++						      gfp_has_io_fs(sc->gfp_mask));
++		goto out;
++	}
+ 
+ 	/*
+ 	 * GFP_NOIO/GFP_NOFS callers are allowed to isolate more pages, so they
+@@ -1848,7 +1970,7 @@ static bool too_many_isolated(struct pglist_data *pgdat, int file,
+ 		inactive >>= 3;
+ 
+ 	too_many = isolated > inactive;
+-
++out:
+ 	/* Wake up tasks throttled due to too_many_isolated. */
+ 	if (!too_many)
+ 		wake_throttle_isolated(pgdat);
+@@ -1994,7 +2116,7 @@ static unsigned long shrink_inactive_list(unsigned long nr_to_scan,
+ 	struct pglist_data *pgdat = lruvec_pgdat(lruvec);
+ 	bool stalled = false;
+ 
+-	while (unlikely(too_many_isolated(pgdat, file, sc))) {
++	while (unlikely(too_many_isolated(lruvec, file, sc))) {
+ 		if (stalled)
+ 			return 0;
+ 
+@@ -2011,8 +2133,12 @@ static unsigned long shrink_inactive_list(unsigned long nr_to_scan,
  
  	lruvec_lock_irq(lruvec);
  
@@ -10090,7 +10325,7 @@ index f11491ee9..55f4521f4 100644
  
  	__mod_node_page_state(pgdat, NR_ISOLATED_ANON + file, nr_taken);
  	item = PGSCAN_KSWAPD + reclaimer_offset(sc);
-@@ -2176,6 +2295,33 @@ static unsigned int reclaim_folio_list(struct list_head *folio_list,
+@@ -2176,6 +2302,33 @@ static unsigned int reclaim_folio_list(struct list_head *folio_list,
  	return nr_reclaimed;
  }
  
@@ -10124,7 +10359,7 @@ index f11491ee9..55f4521f4 100644
  unsigned long reclaim_pages(struct list_head *folio_list)
  {
  	int nid;
-@@ -2212,6 +2358,11 @@ unsigned long reclaim_pages(struct list_head *folio_list)
+@@ -2212,6 +2365,11 @@ unsigned long reclaim_pages(struct list_head *folio_list)
  static unsigned long shrink_list(enum lru_list lru, unsigned long nr_to_scan,
  				 struct lruvec *lruvec, struct scan_control *sc)
  {
@@ -10136,7 +10371,7 @@ index f11491ee9..55f4521f4 100644
  	if (is_active_lru(lru)) {
  		if (sc->may_deactivate & (1 << is_file_lru(lru)))
  			shrink_active_list(nr_to_scan, lruvec, sc, lru);
-@@ -2439,6 +2590,14 @@ static void prepare_scan_control(pg_data_t *pgdat, struct scan_control *sc)
+@@ -2439,6 +2597,14 @@ static void prepare_scan_control(pg_data_t *pgdat, struct scan_control *sc)
  			!(sc->may_deactivate & DEACTIVATE_ANON) &&
  			anon >> sc->priority;
  	}
@@ -10151,7 +10386,7 @@ index f11491ee9..55f4521f4 100644
  }
  
  static inline void calculate_pressure_balance(struct scan_control *sc,
-@@ -2575,6 +2734,42 @@ static void get_scan_count(struct lruvec *lruvec, struct scan_control *sc,
+@@ -2575,6 +2741,42 @@ static void get_scan_count(struct lruvec *lruvec, struct scan_control *sc,
  		goto out;
  	}
  
@@ -10194,7 +10429,7 @@ index f11491ee9..55f4521f4 100644
  	/* If we have no swap space, do not bother scanning anon folios. */
  	if (!sc->may_swap || !can_reclaim_anon_pages(memcg, pgdat->node_id, sc)) {
  		scan_balance = SCAN_FILE;
-@@ -2641,6 +2836,10 @@ static void get_scan_count(struct lruvec *lruvec, struct scan_control *sc,
+@@ -2641,6 +2843,10 @@ static void get_scan_count(struct lruvec *lruvec, struct scan_control *sc,
  		if (!scan && !mem_cgroup_online(memcg))
  			scan = min(lruvec_size, SWAP_CLUSTER_MAX);
  
@@ -10205,7 +10440,7 @@ index f11491ee9..55f4521f4 100644
  		switch (scan_balance) {
  		case SCAN_EQUAL:
  			/* Scan lists relative to size */
-@@ -2692,7 +2891,8 @@ static bool can_age_anon_pages(struct lruvec *lruvec,
+@@ -2692,7 +2898,8 @@ static bool can_age_anon_pages(struct lruvec *lruvec,
  #ifdef CONFIG_LRU_GEN
  
  DEFINE_STATIC_KEY_FALSE(lru_switch);
@@ -10215,7 +10450,7 @@ index f11491ee9..55f4521f4 100644
  DEFINE_STATIC_KEY_ARRAY_TRUE(lru_gen_caps, NR_LRU_GEN_CAPS);
  #define get_cap(cap)	static_branch_likely(&lru_gen_caps[cap])
  #else
-@@ -5355,12 +5555,15 @@ static bool drain_evictable(struct lruvec *lruvec)
+@@ -5355,12 +5562,15 @@ static bool drain_evictable(struct lruvec *lruvec)
  	return true;
  }
  
@@ -10232,7 +10467,7 @@ index f11491ee9..55f4521f4 100644
  	cgroup_lock();
  	cpus_read_lock();
  	get_online_mems();
-@@ -5369,6 +5572,11 @@ static void lru_gen_change_state(bool enabled)
+@@ -5369,6 +5579,11 @@ static void lru_gen_change_state(bool enabled)
  	if (enabled == lru_gen_enabled())
  		goto unlock;
  
@@ -10244,7 +10479,7 @@ index f11491ee9..55f4521f4 100644
  	static_branch_enable_cpuslocked(&lru_switch);
  
  	if (enabled)
-@@ -5409,6 +5617,8 @@ static void lru_gen_change_state(bool enabled)
+@@ -5409,6 +5624,8 @@ static void lru_gen_change_state(bool enabled)
  	put_online_mems();
  	cpus_read_unlock();
  	cgroup_unlock();
@@ -10253,7 +10488,7 @@ index f11491ee9..55f4521f4 100644
  }
  
  /******************************************************************************
-@@ -5469,9 +5679,12 @@ static ssize_t enabled_store(struct kobject *kobj, struct kobj_attribute *attr,
+@@ -5469,9 +5686,12 @@ static ssize_t enabled_store(struct kobject *kobj, struct kobj_attribute *attr,
  	for (i = 0; i < NR_LRU_GEN_CAPS; i++) {
  		bool enabled = caps & BIT(i);
  
@@ -10269,7 +10504,7 @@ index f11491ee9..55f4521f4 100644
  			static_branch_enable(&lru_gen_caps[i]);
  		else
  			static_branch_disable(&lru_gen_caps[i]);
-@@ -5943,6 +6156,16 @@ static int __init init_lru_gen(void)
+@@ -5943,6 +6163,16 @@ static int __init init_lru_gen(void)
  	debugfs_create_file_aux_num("lru_gen_full", 0444, NULL, NULL, true,
  				    &lru_gen_ro_fops);
  
@@ -10286,7 +10521,7 @@ index f11491ee9..55f4521f4 100644
  	return 0;
  };
  late_initcall(init_lru_gen);
-@@ -6005,8 +6228,14 @@ static void shrink_lruvec(struct lruvec *lruvec, struct scan_control *sc)
+@@ -6005,8 +6235,14 @@ static void shrink_lruvec(struct lruvec *lruvec, struct scan_control *sc)
  				sc->priority == DEF_PRIORITY);
  
  	blk_start_plug(&plug);
@@ -10302,7 +10537,7 @@ index f11491ee9..55f4521f4 100644
  		unsigned long nr_anon, nr_file, percentage;
  		unsigned long nr_scanned;
  
-@@ -6079,9 +6308,10 @@ static void shrink_lruvec(struct lruvec *lruvec, struct scan_control *sc)
+@@ -6079,9 +6315,10 @@ static void shrink_lruvec(struct lruvec *lruvec, struct scan_control *sc)
  
  	/*
  	 * Even if we did not try to evict anon pages at all, we want to
@@ -10315,7 +10550,7 @@ index f11491ee9..55f4521f4 100644
  	    inactive_is_low(lruvec, LRU_INACTIVE_ANON))
  		shrink_active_list(SWAP_CLUSTER_MAX, lruvec,
  				   sc, LRU_ACTIVE_ANON);
-@@ -6916,6 +7146,10 @@ static void kswapd_age_node(struct pglist_data *pgdat, struct scan_control *sc)
+@@ -6916,6 +7153,10 @@ static void kswapd_age_node(struct pglist_data *pgdat, struct scan_control *sc)
  
  	}
  
@@ -10326,7 +10561,7 @@ index f11491ee9..55f4521f4 100644
  	lruvec = mem_cgroup_lruvec(NULL, pgdat);
  	if (!can_age_anon_pages(lruvec, sc))
  		return;
-@@ -7686,6 +7920,9 @@ unsigned long shrink_all_memory(unsigned long nr_to_reclaim)
+@@ -7686,6 +7927,9 @@ unsigned long shrink_all_memory(unsigned long nr_to_reclaim)
  void __meminit kswapd_run(int nid)
  {
  	pg_data_t *pgdat = NODE_DATA(nid);
@@ -10336,7 +10571,7 @@ index f11491ee9..55f4521f4 100644
  
  	pgdat_kswapd_lock(pgdat);
  	if (!pgdat->kswapd) {
-@@ -7699,7 +7936,32 @@ void __meminit kswapd_run(int nid)
+@@ -7699,7 +7943,32 @@ void __meminit kswapd_run(int nid)
  		} else {
  			wake_up_process(pgdat->kswapd);
  		}
@@ -10369,7 +10604,7 @@ index f11491ee9..55f4521f4 100644
  	pgdat_kswapd_unlock(pgdat);
  }
  
-@@ -7718,6 +7980,13 @@ void __meminit kswapd_stop(int nid)
+@@ -7718,6 +7987,13 @@ void __meminit kswapd_stop(int nid)
  		kthread_stop(kswapd);
  		pgdat->kswapd = NULL;
  	}
