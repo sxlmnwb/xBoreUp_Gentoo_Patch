@@ -1,4 +1,4 @@
-From ebbed27c29ed47e1256ca68dcd2b0fd1f2669da4 Mon Sep 17 00:00:00 2001
+From e3d88681f4c57dd0213083c297eeb8712e675aff Mon Sep 17 00:00:00 2001
 From: Masahito S <firelzrd@gmail.com>
 Date: Sun, 1 Nov 2026 05:43:53 +0900
 Subject: [PATCH 05/11] sched: add POC Selector v3.0.1
@@ -153,10 +153,10 @@ index 5a6d76323..fe0e9b159 100644
  	/* A delayed task cannot be in clone(). */
  	WARN_ON_ONCE(p->se.sched_delayed);
 diff --git a/kernel/sched/ext/ext.c b/kernel/sched/ext/ext.c
-index f1b9d52f6..c60cca976 100644
+index 04167ed9b..fe6c7559d 100644
 --- a/kernel/sched/ext/ext.c
 +++ b/kernel/sched/ext/ext.c
-@@ -6709,6 +6709,9 @@ static void scx_root_disable(struct scx_sched *sch)
+@@ -6721,6 +6721,9 @@ static void scx_root_disable(struct scx_sched *sch)
  	mutex_unlock(&scx_enable_mutex);
  
  	WARN_ON_ONCE(scx_set_enable_state(SCX_DISABLED) != SCX_DISABLING);
@@ -166,7 +166,7 @@ index f1b9d52f6..c60cca976 100644
  done:
  	scx_bypass(sch, false);
  }
-@@ -8013,6 +8016,10 @@ static void scx_root_enable_workfn(struct kthread_work *work)
+@@ -8025,6 +8028,10 @@ static void scx_root_enable_workfn(struct kthread_work *work)
  		}
  	}
  
@@ -178,7 +178,7 @@ index f1b9d52f6..c60cca976 100644
  		sch->ops.name, scx_switched_all() ? "" : " (partial)");
  	kobject_uevent(&sch->kobj, KOBJ_ADD);
 diff --git a/kernel/sched/fair.c b/kernel/sched/fair.c
-index f876314f5..44bd622b4 100644
+index 10a2e5be8..ea5fe5abc 100644
 --- a/kernel/sched/fair.c
 +++ b/kernel/sched/fair.c
 @@ -1353,7 +1353,7 @@ static bool update_deadline(struct cfs_rq *cfs_rq, struct sched_entity *se)
@@ -190,7 +190,7 @@ index f876314f5..44bd622b4 100644
  static unsigned long task_h_load(struct task_struct *p);
  static unsigned long capacity_of(int cpu);
  
-@@ -8532,6 +8532,10 @@ static bool __dequeue_task(struct rq *rq, struct task_struct *p, int flags)
+@@ -8536,6 +8536,10 @@ static bool __dequeue_task(struct rq *rq, struct task_struct *p, int flags)
  	return true;
  }
  
@@ -201,7 +201,7 @@ index f876314f5..44bd622b4 100644
  /*
   * The dequeue_task method is called before nr_running is
   * decreased. We remove the task from the rbtree and
-@@ -8544,6 +8548,10 @@ static bool dequeue_task_fair(struct rq *rq, struct task_struct *p, int flags)
+@@ -8548,6 +8552,10 @@ static bool dequeue_task_fair(struct rq *rq, struct task_struct *p, int flags)
  		return true;
  	}
  
@@ -212,7 +212,7 @@ index f876314f5..44bd622b4 100644
  	if (!p->se.sched_delayed)
  		util_est_dequeue(&rq->cfs, p);
  
-@@ -8988,6 +8996,33 @@ void __update_idle_core(struct rq *rq)
+@@ -8992,6 +9000,33 @@ void __update_idle_core(struct rq *rq)
  	rcu_read_unlock();
  }
  
@@ -246,7 +246,7 @@ index f876314f5..44bd622b4 100644
  /*
   * Scan the entire LLC domain for idle cores; this dynamically switches off if
   * there are no idle cores left in the system; tracked through
-@@ -9315,16 +9350,55 @@ static inline bool asym_fits_cpu(unsigned long util,
+@@ -9319,16 +9354,55 @@ static inline bool asym_fits_cpu(unsigned long util,
  	return true;
  }
  
@@ -303,7 +303,7 @@ index f876314f5..44bd622b4 100644
  	/*
  	 * On asymmetric system, update task utilization because we will check
  	 * that the task fits with CPU's capacity.
-@@ -9341,23 +9415,15 @@ static int select_idle_sibling(struct task_struct *p, int prev, int target)
+@@ -9345,23 +9419,15 @@ static int select_idle_sibling(struct task_struct *p, int prev, int target)
  	 */
  	lockdep_assert_irqs_disabled();
  
@@ -334,7 +334,7 @@ index f876314f5..44bd622b4 100644
  
  	/*
  	 * Allow a per-cpu kthread to stack with the wakee if the
-@@ -9375,24 +9441,6 @@ static int select_idle_sibling(struct task_struct *p, int prev, int target)
+@@ -9379,24 +9445,6 @@ static int select_idle_sibling(struct task_struct *p, int prev, int target)
  		return prev;
  	}
  
@@ -359,7 +359,7 @@ index f876314f5..44bd622b4 100644
  	/*
  	 * For asymmetric CPU capacity systems, our domain of interest is
  	 * sd_asym_cpucapacity rather than sd_llc.
-@@ -9417,6 +9465,46 @@ static int select_idle_sibling(struct task_struct *p, int prev, int target)
+@@ -9421,6 +9469,46 @@ static int select_idle_sibling(struct task_struct *p, int prev, int target)
  	if (!sd)
  		return target;
  
@@ -406,7 +406,7 @@ index f876314f5..44bd622b4 100644
  	if (sched_smt_active()) {
  		has_idle_core = test_idle_cores(target);
  
-@@ -9431,6 +9519,9 @@ static int select_idle_sibling(struct task_struct *p, int prev, int target)
+@@ -9435,6 +9523,9 @@ static int select_idle_sibling(struct task_struct *p, int prev, int target)
  	if ((unsigned)i < nr_cpumask_bits)
  		return i;
  
@@ -416,7 +416,7 @@ index f876314f5..44bd622b4 100644
  	/*
  	 * For cluster machines which have lower sharing cache like L2 or
  	 * LLC Tag, we tend to find an idle CPU in the target's cluster
-@@ -9442,6 +9533,9 @@ static int select_idle_sibling(struct task_struct *p, int prev, int target)
+@@ -9446,6 +9537,9 @@ static int select_idle_sibling(struct task_struct *p, int prev, int target)
  	if ((unsigned int)recent_used_cpu < nr_cpumask_bits)
  		return recent_used_cpu;
  
@@ -426,7 +426,7 @@ index f876314f5..44bd622b4 100644
  	return target;
  }
  
-@@ -10123,8 +10217,13 @@ select_task_rq_fair(struct task_struct *p, int prev_cpu, int wake_flags)
+@@ -10127,8 +10221,13 @@ select_task_rq_fair(struct task_struct *p, int prev_cpu, int wake_flags)
  		return sched_balance_find_dst_cpu(sd, p, cpu, prev_cpu, sd_flag);
  
  	/* Fast path */
@@ -442,7 +442,7 @@ index f876314f5..44bd622b4 100644
  
  	return new_cpu;
  }
-@@ -10278,6 +10377,10 @@ static void wakeup_preempt_fair(struct rq *rq, struct task_struct *p, int wake_f
+@@ -10282,6 +10381,10 @@ static void wakeup_preempt_fair(struct rq *rq, struct task_struct *p, int wake_f
  	struct sched_entity *nse, *se = &donor->se, *pse = &p->se;
  	struct cfs_rq *cfs_rq = &rq->cfs;
  	int cse_is_idle, pse_is_idle;
@@ -453,7 +453,7 @@ index f876314f5..44bd622b4 100644
  
  	/*
  	 * XXX Getting preempted by higher class, try and find idle CPU?
-@@ -10286,6 +10389,10 @@ static void wakeup_preempt_fair(struct rq *rq, struct task_struct *p, int wake_f
+@@ -10290,6 +10393,10 @@ static void wakeup_preempt_fair(struct rq *rq, struct task_struct *p, int wake_f
  	    donor->sched_class != &fair_sched_class)
  		return;
  

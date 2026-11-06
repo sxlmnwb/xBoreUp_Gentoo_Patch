@@ -1,6 +1,6 @@
 #
 # Automatically generated file; DO NOT EDIT.
-# Linux/x86 7.3.1 Kernel Configuration
+# Linux/x86 7.3.3 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="xBoreUp [lto-thin,polly,znver5,O3] clang version 23.1.5 (https://github.com/llvm/llvm-project.git 93acfd24c5991418bfcee971d17e091c9cdb077b)"
 CONFIG_GCC_VERSION=0
@@ -1873,7 +1873,7 @@ CONFIG_NET_CLS_ACT=y
 CONFIG_NET_TC_SKB_EXT=y
 CONFIG_NET_SCH_FIFO=y
 # CONFIG_DCB is not set
-# CONFIG_DNS_RESOLVER is not set
+CONFIG_DNS_RESOLVER=y
 # CONFIG_BATMAN_ADV is not set
 # CONFIG_OPENVSWITCH is not set
 # CONFIG_VSOCKETS is not set
@@ -6701,6 +6701,10 @@ CONFIG_OVERLAY_FS_REDIRECT_ALWAYS_FOLLOW=y
 #
 # Caches
 #
+CONFIG_NETFS_SUPPORT=y
+# CONFIG_NETFS_STATS is not set
+# CONFIG_NETFS_DEBUG is not set
+# CONFIG_FSCACHE is not set
 # end of Caches
 
 #
@@ -6796,8 +6800,19 @@ CONFIG_NETWORK_FILESYSTEMS=y
 # CONFIG_NFS_FS is not set
 # CONFIG_NFSD is not set
 # CONFIG_CEPH_FS is not set
-# CONFIG_CIFS is not set
+CONFIG_CIFS=y
+CONFIG_CIFS_STATS2=y
+CONFIG_CIFS_ALLOW_INSECURE_LEGACY=y
+# CONFIG_CIFS_UPCALL is not set
+# CONFIG_CIFS_XATTR is not set
+CONFIG_CIFS_DEBUG=y
+# CONFIG_CIFS_DEBUG2 is not set
+# CONFIG_CIFS_DEBUG_DUMP_KEYS is not set
+# CONFIG_CIFS_DFS_UPCALL is not set
+# CONFIG_CIFS_SWN_UPCALL is not set
+# CONFIG_CIFS_COMPRESSION is not set
 # CONFIG_SMB_SERVER is not set
+CONFIG_SMBFS=y
 # CONFIG_CODA_FS is not set
 # CONFIG_AFS_FS is not set
 CONFIG_NLS=y
@@ -6851,6 +6866,7 @@ CONFIG_NLS_ASCII=y
 # CONFIG_NLS_MAC_ROMANIAN is not set
 # CONFIG_NLS_MAC_TURKISH is not set
 # CONFIG_NLS_UTF8 is not set
+CONFIG_NLS_UCS2_UTILS=y
 # CONFIG_DLM is not set
 CONFIG_UNICODE=y
 CONFIG_IO_WQ=y

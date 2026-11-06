@@ -1,7 +1,7 @@
-From 84aa4273553fef22bd31ca260fb884d76890ed9d Mon Sep 17 00:00:00 2001
+From c840a2fe4f1cb3ecb8ac431e14e6b1a69959eea9 Mon Sep 17 00:00:00 2001
 From: Masahito S <firelzrd@gmail.com>
-Date: Sun, 1 Nov 2026 08:37:19 +0900
-Subject: [PATCH 11/11] mm: add lru_cast CAST v0.2.9
+Date: Wed, 4 Nov 2026 09:55:16 +0900
+Subject: [PATCH 11/11] mm: add lru_cast CAST v0.2.10
 
 Cost-Aware Self-Tuning LRFU.
 
@@ -15,7 +15,7 @@ walker, plus kcompressd-unofficial async swap-out and the le9uo
 clean-file floor.
 
 Source: https://github.com/firelzrd/lru_cast
-Patch: 0001-7.3-rc7-lru_cast-v0.2.9.patch
+Patch: 0001-7.3-rc7-lru_cast-v0.2.10.patch
 
 Co-authored-by: Masahito S <firelzrd@gmail.com>
 Signed-off-by: Salman Wahib <sxlmnwb.dev@gmail.com>
@@ -52,11 +52,11 @@ Signed-off-by: Salman Wahib <sxlmnwb.dev@gmail.com>
  mm/lru_cast/core/store.c           | 197 +++++++
  mm/lru_cast/core/store.h           |  25 +
  mm/lru_cast/hooks.c                |  28 +
- mm/lru_cast/policy/balance.c       | 246 +++++++++
+ mm/lru_cast/policy/balance.c       | 275 ++++++++++
  mm/lru_cast/policy/ghost.c         | 176 +++++++
  mm/lru_cast/policy/params.c        |  70 +++
  mm/lru_cast/policy/policy.h        |  78 +++
- mm/lru_cast/policy/reclaim.c       | 184 +++++++
+ mm/lru_cast/policy/reclaim.c       | 197 +++++++
  mm/lru_cast/policy/ring.c          | 796 +++++++++++++++++++++++++++++
  mm/lru_cast/sysfs.c                | 293 +++++++++++
  mm/lru_cast/tune/cost.c            | 504 ++++++++++++++++++
@@ -104,7 +104,7 @@ Signed-off-by: Salman Wahib <sxlmnwb.dev@gmail.com>
  mm/swap.h                          |  18 +
  mm/vmscan.c                        | 304 ++++++++++-
  mm/workingset.c                    |  27 +
- 84 files changed, 9295 insertions(+), 26 deletions(-)
+ 84 files changed, 9337 insertions(+), 26 deletions(-)
  create mode 100644 include/linux/lru_cast.h
  create mode 100644 mm/lru_cast/Makefile
  create mode 100755 mm/lru_cast/check-layers.sh
@@ -1209,7 +1209,7 @@ index 1e5d68acf..31467dfc1 100644
  		/* Page flags must be visible before we make the page non-compound. */
  		smp_wmb();
 diff --git a/mm/khugepaged.c b/mm/khugepaged.c
-index 75639298e..82d88f96e 100644
+index 792166950..f86f1397c 100644
 --- a/mm/khugepaged.c
 +++ b/mm/khugepaged.c
 @@ -1211,6 +1211,8 @@ static enum scan_result __collapse_huge_page_swapin(struct mm_struct *mm,
@@ -3305,10 +3305,10 @@ index 000000000..3393f1e19
 +}
 diff --git a/mm/lru_cast/policy/balance.c b/mm/lru_cast/policy/balance.c
 new file mode 100644
-index 000000000..12e6906a3
+index 000000000..88ce0a116
 --- /dev/null
 +++ b/mm/lru_cast/policy/balance.c
-@@ -0,0 +1,246 @@
+@@ -0,0 +1,275 @@
 +// SPDX-License-Identifier: GPL-2.0
 +/*
 + * CAST -- which type to take from, and the clean-file floor.
@@ -3469,6 +3469,28 @@ index 000000000..12e6906a3
 +}
 +
 +/*
++ * @lruvec's part of the node's anon pinned for a device: the node's pins
++ * (taken less released, in pages: gup counts both, and an unpin shows at
++ * once) by its part of the node's anon, as lru_cast_zs_part() does for
++ * zram. Pinned pages stay on the lists but reclaim cannot take them, so
++ * what anon can give is its pages less these. The count does not tell
++ * anon from file; file pinned is rare, and then anon is taken for less
++ * than it is, for as long as the pin lasts.
++ */
++static unsigned long lru_cast_pinned_part(struct lruvec *lruvec, unsigned long anon)
++{
++	struct pglist_data *pgdat = lruvec_pgdat(lruvec);
++	long pins = node_page_state(pgdat, NR_FOLL_PIN_ACQUIRED) -
++		    node_page_state(pgdat, NR_FOLL_PIN_RELEASED);
++	unsigned long node = node_page_state(pgdat, NR_ACTIVE_ANON) +
++			     node_page_state(pgdat, NR_INACTIVE_ANON);
++
++	if (pins <= 0 || !node)
++		return 0;
++	return min(anon, div64_u64((u64)min((unsigned long)pins, node) * anon, node));
++}
++
++/*
 + * The pressure on a page of each type, as a swappiness: each type's part of
 + * memory over its share, anon's against file's, no further apart than 1:199.
 + * Anon's memory is its pages on the lists and those compressed in memory.
@@ -3498,12 +3520,19 @@ index 000000000..12e6906a3
 +			     lru_cast_lru_size(lruvec, LRU_ACTIVE_ANON);
 +	unsigned long file = lru_cast_lru_size(lruvec, LRU_INACTIVE_FILE) +
 +			     lru_cast_lru_size(lruvec, LRU_ACTIVE_FILE);
++	unsigned long pinned = 0;
 +	int pick;
 +
 +	if (swappiness <= 0)
 +		anon_ok = false;		/* never swap: at the floor, nothing */
 +	anon_ok = anon_ok && anon;
 +	file_ok = file_ok && file;
++	if (anon_ok && file_ok && priority) {
++		/* what anon can give is what is not pinned; none, and file gives (not on the last pass) */
++		pinned = lru_cast_pinned_part(lruvec, anon);
++		if (pinned >= anon)
++			anon_ok = false;
++	}
 +	if (anon_ok && file_ok) {
 +		if (swappiness == 1)		/* file to the floor first */
 +			pick = LRU_CAST_FILE;
@@ -3514,7 +3543,7 @@ index 000000000..12e6906a3
 +		else {	/* both, pressed toward the share */
 +			if (unlikely(!lru_cast_param_share_held()))
 +				lru_cast_hold_share();
-+			lru_cast_pressure(anon + lru_cast_zs_part(lruvec, anon), file, weight);
++			lru_cast_pressure(anon - pinned + lru_cast_zs_part(lruvec, anon), file, weight);
 +			pick = LRU_CAST_BOTH;
 +		}
 +	} else if (anon_ok) {
@@ -3899,10 +3928,10 @@ index 000000000..ad9271c98
 +#endif /* _MM_LRU_CAST_POLICY_H */
 diff --git a/mm/lru_cast/policy/reclaim.c b/mm/lru_cast/policy/reclaim.c
 new file mode 100644
-index 000000000..22e9c4962
+index 000000000..c598c5165
 --- /dev/null
 +++ b/mm/lru_cast/policy/reclaim.c
-@@ -0,0 +1,184 @@
+@@ -0,0 +1,197 @@
 +// SPDX-License-Identifier: GPL-2.0
 +/*
 + * CAST -- the choice of victims.
@@ -4031,6 +4060,19 @@ index 000000000..22e9c4962
 +		scan += nr_pages;
 +		if (!folio_test_lru(folio) || (!s->may_unmap && folio_mapped(folio)))
 +			goto aside;
++		/*
++		 * Pinned for a device (FOLL_LONGTERM: CUDA, io_uring, RDMA): the
++		 * unmap fails, and the folio would go back to M under the same
++		 * key, still the lowest, for reclaim to take again -- the CPU
++		 * does not read it, so nothing lifts it. Lift it, as program
++		 * text in use is: it is in use, and a victim must be one that
++		 * can go. (How much of a type is pinned, lru_cast_pick() reads
++		 * off the node's pin counts.)
++		 */
++		if (unlikely(folio_maybe_dma_pinned(folio))) {
++			lru_cast_access_kept(folio);
++			goto aside;
++		}
 +		if (unlikely(!folio_try_get(folio)))
 +			goto aside;
 +		if (!folio_test_clear_lru(folio)) {
@@ -8152,7 +8194,7 @@ index 000000000..ac9d33c02
 +#endif /* _MM_LRU_CAST_TUNE_WSHARE_H */
 diff --git a/mm/lru_cast/version.h b/mm/lru_cast/version.h
 new file mode 100644
-index 000000000..f1eb1c78e
+index 000000000..54c570290
 --- /dev/null
 +++ b/mm/lru_cast/version.h
 @@ -0,0 +1,15 @@
@@ -8168,7 +8210,7 @@ index 000000000..f1eb1c78e
 +#define LRU_CAST_PROGNAME	"lru_cast"
 +#define LRU_CAST_AUTHOR	"Masahito Suzuki"
 +
-+#define LRU_CAST_VERSION	"0.2.9"
++#define LRU_CAST_VERSION	"0.2.10"
 +
 +#endif /* _MM_LRU_CAST_VERSION_H */
 diff --git a/mm/lru_cast/walk/bloom.c b/mm/lru_cast/walk/bloom.c
@@ -10024,7 +10066,7 @@ index 88962571c..23a4fb8dd 100644
  	}
  }
 diff --git a/mm/rmap.c b/mm/rmap.c
-index f3b21aaa3..f5fd9100c 100644
+index 6b3480330..9662b0979 100644
 --- a/mm/rmap.c
 +++ b/mm/rmap.c
 @@ -986,6 +986,9 @@ static bool folio_referenced_one(struct folio *folio,
