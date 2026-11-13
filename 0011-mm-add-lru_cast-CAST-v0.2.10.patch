@@ -1,4 +1,4 @@
-From c840a2fe4f1cb3ecb8ac431e14e6b1a69959eea9 Mon Sep 17 00:00:00 2001
+From c83ede0eda285d7b5ca24cc6ba12488496cf7423 Mon Sep 17 00:00:00 2001
 From: Masahito S <firelzrd@gmail.com>
 Date: Wed, 4 Nov 2026 09:55:16 +0900
 Subject: [PATCH 11/11] mm: add lru_cast CAST v0.2.10
@@ -1188,7 +1188,7 @@ index 50a6dbe55..57708320b 100644
  	for_each_lru(lru)
  		lruvec_reparent_lru(child_lruvec, parent_lruvec, lru, nid);
 diff --git a/mm/huge_memory.c b/mm/huge_memory.c
-index 1e5d68acf..31467dfc1 100644
+index 779c02e0b..f3cbd1cfc 100644
 --- a/mm/huge_memory.c
 +++ b/mm/huge_memory.c
 @@ -17,6 +17,7 @@
@@ -1199,7 +1199,7 @@ index 1e5d68acf..31467dfc1 100644
  #include <linux/swapops.h>
  #include <linux/backing-dev.h>
  #include <linux/dax.h>
-@@ -3757,6 +3758,8 @@ static void __split_folio_to_order(struct folio *folio, int old_order,
+@@ -3761,6 +3762,8 @@ static void __split_folio_to_order(struct folio *folio, int old_order,
  
  		if (folio_test_swapcache(folio))
  			new_folio->swap.val = folio->swap.val + i;
@@ -9518,10 +9518,10 @@ index 000000000..63314ed39
 +
 +#endif /* _MM_LRU_CAST_WALK_YOUNG_H */
 diff --git a/mm/memcontrol.c b/mm/memcontrol.c
-index 856a7d075..4fef47475 100644
+index b5137e86b..1d42846c0 100644
 --- a/mm/memcontrol.c
 +++ b/mm/memcontrol.c
-@@ -4083,6 +4083,7 @@ static void free_mem_cgroup_per_node_info(struct mem_cgroup_per_node *pn)
+@@ -4099,6 +4099,7 @@ static void free_mem_cgroup_per_node_info(struct mem_cgroup_per_node *pn)
  	if (!pn)
  		return;
  
@@ -9530,7 +9530,7 @@ index 856a7d075..4fef47475 100644
  	kfree(pn->lruvec_stats);
  	kfree(pn);
 diff --git a/mm/memory.c b/mm/memory.c
-index 8b0c2c735..e393ca53e 100644
+index 9e395ad33..68a3f221f 100644
 --- a/mm/memory.c
 +++ b/mm/memory.c
 @@ -42,6 +42,7 @@
@@ -9660,10 +9660,10 @@ index 9cc9ef588..4ad8f97d7 100644
  
  #if defined(CONFIG_NUMA_BALANCING) && !defined(LAST_CPUPID_NOT_IN_PAGE_FLAGS)
 diff --git a/mm/page_alloc.c b/mm/page_alloc.c
-index 12fac9084..1efdd08a3 100644
+index 8ca2289d0..fd48a7b5b 100644
 --- a/mm/page_alloc.c
 +++ b/mm/page_alloc.c
-@@ -46,6 +46,7 @@
+@@ -47,6 +47,7 @@
  #include <linux/sched/mm.h>
  #include <linux/page_owner.h>
  #include <linux/page_table_check.h>
@@ -9671,7 +9671,7 @@ index 12fac9084..1efdd08a3 100644
  #include <linux/memcontrol.h>
  #include <linux/ftrace.h>
  #include <linux/lockdep.h>
-@@ -1418,6 +1419,7 @@ static __always_inline bool __free_pages_prepare(struct page *page,
+@@ -1421,6 +1422,7 @@ static __always_inline bool __free_pages_prepare(struct page *page,
  	reset_page_owner(page, order);
  	page_table_check_free(page, order);
  	pgalloc_tag_sub(page, 1 << order);
@@ -10080,7 +10080,7 @@ index 6b3480330..9662b0979 100644
  			if (clear_flush_young_ptes_notify(vma, address, pvmw.pte, nr))
  				referenced++;
 diff --git a/mm/shmem.c b/mm/shmem.c
-index 848316eaa..837bdf543 100644
+index de2362209..823aa616e 100644
 --- a/mm/shmem.c
 +++ b/mm/shmem.c
 @@ -68,6 +68,7 @@ static struct vfsmount *shm_mnt __ro_after_init;
@@ -10091,7 +10091,7 @@ index 848316eaa..837bdf543 100644
  #include <linux/mempolicy.h>
  #include <linux/namei.h>
  #include <linux/ctype.h>
-@@ -2300,6 +2301,9 @@ static int shmem_swapin_folio(struct inode *inode, pgoff_t index,
+@@ -2302,6 +2303,9 @@ static int shmem_swapin_folio(struct inode *inode, pgoff_t index,
  	/* Look it up and read it in.. */
  	folio = swap_cache_get_folio(swap);
  	if (!folio) {
@@ -10102,7 +10102,7 @@ index 848316eaa..837bdf543 100644
  			/* Direct swapin skipping swap cache & readahead */
  			folio = shmem_swap_alloc_folio(inode, vmf, index,
 diff --git a/mm/swap.h b/mm/swap.h
-index 90a551a88..a63d05822 100644
+index c9202516b..514adf455 100644
 --- a/mm/swap.h
 +++ b/mm/swap.h
 @@ -258,7 +258,20 @@ void swap_read_folio(struct swap_io_ctx *ctx, struct folio *folio);
@@ -10126,7 +10126,7 @@ index 90a551a88..a63d05822 100644
  
  /* linux/mm/swap_state.c */
  extern struct address_space swap_space __read_mostly;
-@@ -428,6 +441,11 @@ static inline int swap_writeout(struct swap_io_ctx *ctx, struct folio *folio)
+@@ -429,6 +442,11 @@ static inline int swap_writeout(struct swap_io_ctx *ctx, struct folio *folio)
  	return 0;
  }
  
@@ -10139,7 +10139,7 @@ index 90a551a88..a63d05822 100644
  {
  	return -EINVAL;
 diff --git a/mm/vmscan.c b/mm/vmscan.c
-index f11491ee9..1eae4ba57 100644
+index 6a53762d5..bd3c4451c 100644
 --- a/mm/vmscan.c
 +++ b/mm/vmscan.c
 @@ -148,6 +148,9 @@ struct scan_control {
@@ -10200,7 +10200,7 @@ index f11491ee9..1eae4ba57 100644
  	if (res < 0)
  		handle_write_error(mapping, folio, res);
  	if (res == AOP_WRITEPAGE_ACTIVATE) {
-@@ -899,6 +926,39 @@ static enum folio_references folio_check_references(struct folio *folio,
+@@ -898,6 +925,39 @@ static enum folio_references folio_check_references(struct folio *folio,
  
  	referenced_folio = folio_test_clear_referenced(folio);
  
@@ -10240,7 +10240,7 @@ index f11491ee9..1eae4ba57 100644
  	if (referenced_ptes) {
  		/*
  		 * All mapped folios start out with page table
-@@ -1408,6 +1468,14 @@ static unsigned int shrink_folio_list(struct list_head *folio_list,
+@@ -1407,6 +1467,14 @@ static unsigned int shrink_folio_list(struct list_head *folio_list,
  					nr_pages = 1;
  				}
  				goto activate_locked;
@@ -10255,7 +10255,7 @@ index f11491ee9..1eae4ba57 100644
  			case PAGE_SUCCESS:
  				if (nr_pages > 1 && !folio_test_large(folio)) {
  					sc->nr_scanned -= (nr_pages - 1);
-@@ -1770,6 +1838,53 @@ static unsigned long isolate_lru_folios(unsigned long nr_to_scan,
+@@ -1769,6 +1837,53 @@ static unsigned long isolate_lru_folios(unsigned long nr_to_scan,
  	return nr_taken;
  }
  
@@ -10309,7 +10309,7 @@ index f11491ee9..1eae4ba57 100644
  /**
   * folio_isolate_lru() - Try to isolate a folio from its LRU list.
   * @folio: Folio to isolate from its LRU list.
-@@ -1819,9 +1934,10 @@ bool folio_isolate_lru(struct folio *folio)
+@@ -1818,9 +1933,10 @@ bool folio_isolate_lru(struct folio *folio)
   * the LRU list will go small and be scanned faster than necessary, leading to
   * unnecessary swapping, thrashing and OOM.
   */
@@ -10321,7 +10321,7 @@ index f11491ee9..1eae4ba57 100644
  	unsigned long inactive, isolated;
  	bool too_many;
  
-@@ -1838,6 +1954,12 @@ static bool too_many_isolated(struct pglist_data *pgdat, int file,
+@@ -1837,6 +1953,12 @@ static bool too_many_isolated(struct pglist_data *pgdat, int file,
  		inactive = node_page_state(pgdat, NR_INACTIVE_ANON);
  		isolated = node_page_state(pgdat, NR_ISOLATED_ANON);
  	}
@@ -10334,7 +10334,7 @@ index f11491ee9..1eae4ba57 100644
  
  	/*
  	 * GFP_NOIO/GFP_NOFS callers are allowed to isolate more pages, so they
-@@ -1848,7 +1970,7 @@ static bool too_many_isolated(struct pglist_data *pgdat, int file,
+@@ -1847,7 +1969,7 @@ static bool too_many_isolated(struct pglist_data *pgdat, int file,
  		inactive >>= 3;
  
  	too_many = isolated > inactive;
@@ -10343,7 +10343,7 @@ index f11491ee9..1eae4ba57 100644
  	/* Wake up tasks throttled due to too_many_isolated. */
  	if (!too_many)
  		wake_throttle_isolated(pgdat);
-@@ -1994,7 +2116,7 @@ static unsigned long shrink_inactive_list(unsigned long nr_to_scan,
+@@ -1993,7 +2115,7 @@ static unsigned long shrink_inactive_list(unsigned long nr_to_scan,
  	struct pglist_data *pgdat = lruvec_pgdat(lruvec);
  	bool stalled = false;
  
@@ -10352,7 +10352,7 @@ index f11491ee9..1eae4ba57 100644
  		if (stalled)
  			return 0;
  
-@@ -2011,8 +2133,12 @@ static unsigned long shrink_inactive_list(unsigned long nr_to_scan,
+@@ -2010,8 +2132,12 @@ static unsigned long shrink_inactive_list(unsigned long nr_to_scan,
  
  	lruvec_lock_irq(lruvec);
  
@@ -10367,7 +10367,7 @@ index f11491ee9..1eae4ba57 100644
  
  	__mod_node_page_state(pgdat, NR_ISOLATED_ANON + file, nr_taken);
  	item = PGSCAN_KSWAPD + reclaimer_offset(sc);
-@@ -2176,6 +2302,33 @@ static unsigned int reclaim_folio_list(struct list_head *folio_list,
+@@ -2175,6 +2301,33 @@ static unsigned int reclaim_folio_list(struct list_head *folio_list,
  	return nr_reclaimed;
  }
  
@@ -10401,7 +10401,7 @@ index f11491ee9..1eae4ba57 100644
  unsigned long reclaim_pages(struct list_head *folio_list)
  {
  	int nid;
-@@ -2212,6 +2365,11 @@ unsigned long reclaim_pages(struct list_head *folio_list)
+@@ -2211,6 +2364,11 @@ unsigned long reclaim_pages(struct list_head *folio_list)
  static unsigned long shrink_list(enum lru_list lru, unsigned long nr_to_scan,
  				 struct lruvec *lruvec, struct scan_control *sc)
  {
@@ -10413,7 +10413,7 @@ index f11491ee9..1eae4ba57 100644
  	if (is_active_lru(lru)) {
  		if (sc->may_deactivate & (1 << is_file_lru(lru)))
  			shrink_active_list(nr_to_scan, lruvec, sc, lru);
-@@ -2439,6 +2597,14 @@ static void prepare_scan_control(pg_data_t *pgdat, struct scan_control *sc)
+@@ -2438,6 +2596,14 @@ static void prepare_scan_control(pg_data_t *pgdat, struct scan_control *sc)
  			!(sc->may_deactivate & DEACTIVATE_ANON) &&
  			anon >> sc->priority;
  	}
@@ -10428,7 +10428,7 @@ index f11491ee9..1eae4ba57 100644
  }
  
  static inline void calculate_pressure_balance(struct scan_control *sc,
-@@ -2575,6 +2741,42 @@ static void get_scan_count(struct lruvec *lruvec, struct scan_control *sc,
+@@ -2574,6 +2740,42 @@ static void get_scan_count(struct lruvec *lruvec, struct scan_control *sc,
  		goto out;
  	}
  
@@ -10471,7 +10471,7 @@ index f11491ee9..1eae4ba57 100644
  	/* If we have no swap space, do not bother scanning anon folios. */
  	if (!sc->may_swap || !can_reclaim_anon_pages(memcg, pgdat->node_id, sc)) {
  		scan_balance = SCAN_FILE;
-@@ -2641,6 +2843,10 @@ static void get_scan_count(struct lruvec *lruvec, struct scan_control *sc,
+@@ -2640,6 +2842,10 @@ static void get_scan_count(struct lruvec *lruvec, struct scan_control *sc,
  		if (!scan && !mem_cgroup_online(memcg))
  			scan = min(lruvec_size, SWAP_CLUSTER_MAX);
  
@@ -10482,7 +10482,7 @@ index f11491ee9..1eae4ba57 100644
  		switch (scan_balance) {
  		case SCAN_EQUAL:
  			/* Scan lists relative to size */
-@@ -2692,7 +2898,8 @@ static bool can_age_anon_pages(struct lruvec *lruvec,
+@@ -2691,7 +2897,8 @@ static bool can_age_anon_pages(struct lruvec *lruvec,
  #ifdef CONFIG_LRU_GEN
  
  DEFINE_STATIC_KEY_FALSE(lru_switch);
@@ -10492,7 +10492,7 @@ index f11491ee9..1eae4ba57 100644
  DEFINE_STATIC_KEY_ARRAY_TRUE(lru_gen_caps, NR_LRU_GEN_CAPS);
  #define get_cap(cap)	static_branch_likely(&lru_gen_caps[cap])
  #else
-@@ -5355,12 +5562,15 @@ static bool drain_evictable(struct lruvec *lruvec)
+@@ -5360,12 +5567,15 @@ static bool drain_evictable(struct lruvec *lruvec)
  	return true;
  }
  
@@ -10509,7 +10509,7 @@ index f11491ee9..1eae4ba57 100644
  	cgroup_lock();
  	cpus_read_lock();
  	get_online_mems();
-@@ -5369,6 +5579,11 @@ static void lru_gen_change_state(bool enabled)
+@@ -5374,6 +5584,11 @@ static void lru_gen_change_state(bool enabled)
  	if (enabled == lru_gen_enabled())
  		goto unlock;
  
@@ -10521,7 +10521,7 @@ index f11491ee9..1eae4ba57 100644
  	static_branch_enable_cpuslocked(&lru_switch);
  
  	if (enabled)
-@@ -5409,6 +5624,8 @@ static void lru_gen_change_state(bool enabled)
+@@ -5414,6 +5629,8 @@ static void lru_gen_change_state(bool enabled)
  	put_online_mems();
  	cpus_read_unlock();
  	cgroup_unlock();
@@ -10530,7 +10530,7 @@ index f11491ee9..1eae4ba57 100644
  }
  
  /******************************************************************************
-@@ -5469,9 +5686,12 @@ static ssize_t enabled_store(struct kobject *kobj, struct kobj_attribute *attr,
+@@ -5474,9 +5691,12 @@ static ssize_t enabled_store(struct kobject *kobj, struct kobj_attribute *attr,
  	for (i = 0; i < NR_LRU_GEN_CAPS; i++) {
  		bool enabled = caps & BIT(i);
  
@@ -10546,7 +10546,7 @@ index f11491ee9..1eae4ba57 100644
  			static_branch_enable(&lru_gen_caps[i]);
  		else
  			static_branch_disable(&lru_gen_caps[i]);
-@@ -5943,6 +6163,16 @@ static int __init init_lru_gen(void)
+@@ -5948,6 +6168,16 @@ static int __init init_lru_gen(void)
  	debugfs_create_file_aux_num("lru_gen_full", 0444, NULL, NULL, true,
  				    &lru_gen_ro_fops);
  
@@ -10563,7 +10563,7 @@ index f11491ee9..1eae4ba57 100644
  	return 0;
  };
  late_initcall(init_lru_gen);
-@@ -6005,8 +6235,14 @@ static void shrink_lruvec(struct lruvec *lruvec, struct scan_control *sc)
+@@ -6010,8 +6240,14 @@ static void shrink_lruvec(struct lruvec *lruvec, struct scan_control *sc)
  				sc->priority == DEF_PRIORITY);
  
  	blk_start_plug(&plug);
@@ -10579,7 +10579,7 @@ index f11491ee9..1eae4ba57 100644
  		unsigned long nr_anon, nr_file, percentage;
  		unsigned long nr_scanned;
  
-@@ -6079,9 +6315,10 @@ static void shrink_lruvec(struct lruvec *lruvec, struct scan_control *sc)
+@@ -6084,9 +6320,10 @@ static void shrink_lruvec(struct lruvec *lruvec, struct scan_control *sc)
  
  	/*
  	 * Even if we did not try to evict anon pages at all, we want to
@@ -10592,7 +10592,7 @@ index f11491ee9..1eae4ba57 100644
  	    inactive_is_low(lruvec, LRU_INACTIVE_ANON))
  		shrink_active_list(SWAP_CLUSTER_MAX, lruvec,
  				   sc, LRU_ACTIVE_ANON);
-@@ -6916,6 +7153,10 @@ static void kswapd_age_node(struct pglist_data *pgdat, struct scan_control *sc)
+@@ -6921,6 +7158,10 @@ static void kswapd_age_node(struct pglist_data *pgdat, struct scan_control *sc)
  
  	}
  
@@ -10603,7 +10603,7 @@ index f11491ee9..1eae4ba57 100644
  	lruvec = mem_cgroup_lruvec(NULL, pgdat);
  	if (!can_age_anon_pages(lruvec, sc))
  		return;
-@@ -7686,6 +7927,9 @@ unsigned long shrink_all_memory(unsigned long nr_to_reclaim)
+@@ -7691,6 +7932,9 @@ unsigned long shrink_all_memory(unsigned long nr_to_reclaim)
  void __meminit kswapd_run(int nid)
  {
  	pg_data_t *pgdat = NODE_DATA(nid);
@@ -10613,7 +10613,7 @@ index f11491ee9..1eae4ba57 100644
  
  	pgdat_kswapd_lock(pgdat);
  	if (!pgdat->kswapd) {
-@@ -7699,7 +7943,32 @@ void __meminit kswapd_run(int nid)
+@@ -7704,7 +7948,32 @@ void __meminit kswapd_run(int nid)
  		} else {
  			wake_up_process(pgdat->kswapd);
  		}
@@ -10646,7 +10646,7 @@ index f11491ee9..1eae4ba57 100644
  	pgdat_kswapd_unlock(pgdat);
  }
  
-@@ -7718,6 +7987,13 @@ void __meminit kswapd_stop(int nid)
+@@ -7723,6 +7992,13 @@ void __meminit kswapd_stop(int nid)
  		kthread_stop(kswapd);
  		pgdat->kswapd = NULL;
  	}
@@ -10661,7 +10661,7 @@ index f11491ee9..1eae4ba57 100644
  }
  
 diff --git a/mm/workingset.c b/mm/workingset.c
-index 7ac2b88c8..955c60124 100644
+index 8412f4840..2e96123fc 100644
 --- a/mm/workingset.c
 +++ b/mm/workingset.c
 @@ -6,6 +6,7 @@
@@ -10748,5 +10748,5 @@ index 7ac2b88c8..955c60124 100644
  	 * The activation decision for this folio is made at the level
  	 * where the eviction occurred, as that is where the LRU order
 -- 
-2.56.0
+2.56.1
 

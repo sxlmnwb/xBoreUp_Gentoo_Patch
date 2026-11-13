@@ -1,4 +1,4 @@
-From c1df4ac97444abc2e4f9ec1d2bb11d6693deddf1 Mon Sep 17 00:00:00 2001
+From fa2122b5a692626c90db5e81d69c6ca1776ed702 Mon Sep 17 00:00:00 2001
 From: David Morley <morleyd@google.com>
 Date: Mon, 27 Apr 2026 10:31:55 +0200
 Subject: [PATCH 03/11] tcp_bbr: (7.3) update TCP 'bbr' congestion control
@@ -3044,7 +3044,7 @@ index 82378a2bf..c5f8e63ee 100644
  MODULE_DESCRIPTION("TCP BBR (Bottleneck Bandwidth and RTT)");
 +MODULE_VERSION(__stringify(BBR_VERSION));
 diff --git a/net/ipv4/tcp_cong.c b/net/ipv4/tcp_cong.c
-index 8e83ef81f..50e6c89ad 100644
+index e3f462f16..6fce9ac64 100644
 --- a/net/ipv4/tcp_cong.c
 +++ b/net/ipv4/tcp_cong.c
 @@ -238,6 +238,7 @@ void tcp_init_congestion_control(struct sock *sk)
@@ -3056,7 +3056,7 @@ index 8e83ef81f..50e6c89ad 100644
  		icsk->icsk_ca_ops->init(sk);
  	if (tcp_ca_needs_ecn(sk))
 diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 99baf14af..52339da9a 100644
+index 358386748..969a6db9f 100644
 --- a/net/ipv4/tcp_input.c
 +++ b/net/ipv4/tcp_input.c
 @@ -358,7 +358,7 @@ static void tcp_data_ecn_check(struct sock *sk, const struct sk_buff *skb)
@@ -3245,7 +3245,7 @@ index 0ddfd5af6..72c27802b 100644
  		const struct tcp_congestion_ops *ca;
  
 diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index e0c392e29..f52dc515c 100644
+index 9f47b6644..79821974b 100644
 --- a/net/ipv4/tcp_output.c
 +++ b/net/ipv4/tcp_output.c
 @@ -365,7 +365,8 @@ static void tcp_ecn_send(struct sock *sk, struct sk_buff *skb,
@@ -3401,5 +3401,5 @@ index 0a3e9d35b..4fb0a5991 100644
  }
  
 -- 
-2.56.0
+2.56.1
 

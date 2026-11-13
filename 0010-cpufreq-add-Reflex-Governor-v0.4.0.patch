@@ -1,4 +1,4 @@
-From 7a26dca661c02849a97a803766aa7220f67d9bb2 Mon Sep 17 00:00:00 2001
+From 88ce769d08f80a06dfeaeb63bf1d80d16696e31a Mon Sep 17 00:00:00 2001
 From: Masahito S <firelzrd@gmail.com>
 Date: Sat, 3 Oct 2026 01:16:59 +0900
 Subject: [PATCH 10/11] cpufreq: add Reflex Governor v0.4.0
@@ -61,7 +61,7 @@ index 8c5e47c28..1947cebed 100644
  static void update_scale_freq_invariant(bool status)
  {
 diff --git a/drivers/cpufreq/Kconfig b/drivers/cpufreq/Kconfig
-index db83f3365..1951f9e71 100644
+index edc129909..c6801bfb9 100644
 --- a/drivers/cpufreq/Kconfig
 +++ b/drivers/cpufreq/Kconfig
 @@ -202,6 +202,33 @@ config CPU_FREQ_GOV_SCHEDUTIL
@@ -1374,10 +1374,10 @@ index 742fb9e62..5abbe2f17 100644
  }
 +EXPORT_SYMBOL_GPL(cpufreq_this_cpu_can_update);
 diff --git a/kernel/sched/cpufreq_schedutil.c b/kernel/sched/cpufreq_schedutil.c
-index 49ccd6f1c..5bbf408b7 100644
+index 14405a614..54b35e8b5 100644
 --- a/kernel/sched/cpufreq_schedutil.c
 +++ b/kernel/sched/cpufreq_schedutil.c
-@@ -961,3 +961,58 @@ bool sugov_is_governor(struct cpufreq_policy *policy)
+@@ -973,3 +973,58 @@ bool sugov_is_governor(struct cpufreq_policy *policy)
  }
  
  cpufreq_governor_init(schedutil_gov);
@@ -1475,5 +1475,5 @@ index a47e70232..c7b73b0aa 100644
  /**
   * idle_task - return the idle task for a given CPU.
 -- 
-2.56.0
+2.56.1
 

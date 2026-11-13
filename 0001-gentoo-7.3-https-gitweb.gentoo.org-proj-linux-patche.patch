@@ -1,4 +1,4 @@
-From 567b70b03917d8fca4457b33cc4e324b595a46bb Mon Sep 17 00:00:00 2001
+From ee362a48fa32d5c9956970b74d6773c30bbdf6bf Mon Sep 17 00:00:00 2001
 From: Mike Pagano <mpagano@gentoo.org>
 Date: Sat, 31 Oct 2026 22:43:44 +0700
 Subject: [PATCH 01/11] gentoo: (7.3)
@@ -71,7 +71,7 @@ index 103db4683..291408208 100644
  
  static int __init report_memory(void)
 diff --git a/arch/x86/kernel/cpu/amd.c b/arch/x86/kernel/cpu/amd.c
-index 40463bad1..5637ab333 100644
+index 9edc08b86..9edfdb986 100644
 --- a/arch/x86/kernel/cpu/amd.c
 +++ b/arch/x86/kernel/cpu/amd.c
 @@ -31,6 +31,8 @@
@@ -83,7 +83,7 @@ index 40463bad1..5637ab333 100644
  #include "cpu.h"
  
  u16 invlpgb_count_max __ro_after_init = 1;
-@@ -1360,6 +1362,10 @@ static __init int print_s5_reset_status_mmio(void)
+@@ -1365,6 +1367,10 @@ static __init int print_s5_reset_status_mmio(void)
  	if (!cpu_feature_enabled(X86_FEATURE_ZEN))
  		return 0;
  
@@ -336,10 +336,10 @@ index e45e30603..12f7ce210 100644
  #ifdef CONFIG_SYSCTL
  static const struct ctl_table namei_sysctls[] = {
 diff --git a/kernel/sys.c b/kernel/sys.c
-index 35b538ba8..f97dc5f35 100644
+index 755bfa5cc..b85fd7e80 100644
 --- a/kernel/sys.c
 +++ b/kernel/sys.c
-@@ -2809,10 +2809,16 @@ SYSCALL_DEFINE5(prctl, int, option, unsigned long, arg2, unsigned long, arg3,
+@@ -2812,10 +2812,16 @@ SYSCALL_DEFINE5(prctl, int, option, unsigned long, arg2, unsigned long, arg3,
  		break;
  #endif
  	case PR_SET_MDWE:
@@ -629,5 +629,5 @@ index fe136d025..83733a167 100644
  struct symbol {
  	const char *name;
 -- 
-2.56.0
+2.56.1
 

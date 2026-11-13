@@ -1,7 +1,7 @@
-From 597feb56f3432b4a2305a9c19d7ee317f3e5d4be Mon Sep 17 00:00:00 2001
+From 9db09446d5805c88f140b6d3080fb0fde37914b1 Mon Sep 17 00:00:00 2001
 From: Masahito S <firelzrd@gmail.com>
-Date: Sat, 31 Oct 2026 23:19:31 +0700
-Subject: [PATCH 06/11] block: add ADIOS I/O Scheduler v3.3.0
+Date: Mon, 9 Nov 2026 15:46:54 +0900
+Subject: [PATCH 06/11] block: add ADIOS I/O Scheduler v3.3.0r3
 
 Adaptive Deadline I/O Scheduler for blk-mq block devices.
 Combines deadline scheduling with a learning-based adaptive
@@ -9,7 +9,7 @@ latency control mechanism that predicts I/O completion time to
 dynamically adjust deadlines and batching behavior across 4 priority tiers.
 
 Source: https://github.com/firelzrd/adios
-Patch: 0001-linux7.3-rc1-ADIOS-3.3.0r2.patch
+Patch: 0001-linux7.3-rc1-ADIOS-3.3.0r3.patch
 
 Co-authored-by: Masahito S <firelzrd@gmail.com>
 Signed-off-by: Salman Wahib <sxlmnwb.dev@gmail.com>
@@ -2100,5 +2100,5 @@ index 2161b6eea..72a0dc6b3 100644
  }
  
 -- 
-2.56.0
+2.56.1
 

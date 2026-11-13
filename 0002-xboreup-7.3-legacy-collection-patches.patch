@@ -1,4 +1,4 @@
-From f6fddd69553da6f16fb0e89d053f72b7a5be6f7c Mon Sep 17 00:00:00 2001
+From a95533ce8aa826b64892ea06596024c544bf7dfd Mon Sep 17 00:00:00 2001
 From: Salman Wahib <sxlmnwb.dev@gmail.com>
 Date: Fri, 28 Aug 2026 10:42:58 +0700
 Subject: [PATCH 02/11] xboreup: (7.3) legacy collection patches
@@ -100,5 +100,5 @@ index 28169d7e1..6ce26e123 100755
  		fi
  
 -- 
-2.56.0
+2.56.1
 
