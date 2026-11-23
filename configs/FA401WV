@@ -1,6 +1,6 @@
 #
 # Automatically generated file; DO NOT EDIT.
-# Linux/x86 7.3.4 Kernel Configuration
+# Linux/x86 7.3.6 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="xBoreUp [lto-thin,polly,znver5,O3] clang version 23.1.5 (https://github.com/llvm/llvm-project.git 93acfd24c5991418bfcee971d17e091c9cdb077b)"
 CONFIG_GCC_VERSION=0
@@ -4625,6 +4625,7 @@ CONFIG_DRM_AMD_ACP=y
 #
 CONFIG_DRM_AMD_DC=y
 CONFIG_DRM_AMD_DC_FP=y
+CONFIG_DRM_AMD_DC_DCE=y
 # CONFIG_DEBUG_KERNEL_DC is not set
 CONFIG_DRM_AMD_SECURE_DISPLAY=y
 # end of Display Engine Configuration

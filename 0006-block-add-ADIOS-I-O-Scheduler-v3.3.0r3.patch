@@ -1,4 +1,4 @@
-From 9db09446d5805c88f140b6d3080fb0fde37914b1 Mon Sep 17 00:00:00 2001
+From 5916fcc624271dfcb72d3a39e27d0b66bb668f1d Mon Sep 17 00:00:00 2001
 From: Masahito S <firelzrd@gmail.com>
 Date: Mon, 9 Nov 2026 15:46:54 +0900
 Subject: [PATCH 06/11] block: add ADIOS I/O Scheduler v3.3.0r3
@@ -2063,7 +2063,7 @@ index 000000000..e55d966a6
 +MODULE_DESCRIPTION(ADIOS_PROGNAME);
 \ No newline at end of file
 diff --git a/block/elevator.c b/block/elevator.c
-index 2161b6eea..72a0dc6b3 100644
+index 66edf1a57..5f9df78f6 100644
 --- a/block/elevator.c
 +++ b/block/elevator.c
 @@ -740,6 +740,14 @@ void elevator_set_default(struct request_queue *q)

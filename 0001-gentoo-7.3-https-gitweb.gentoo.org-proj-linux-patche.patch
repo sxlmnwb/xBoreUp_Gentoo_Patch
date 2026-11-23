@@ -1,4 +1,4 @@
-From ee362a48fa32d5c9956970b74d6773c30bbdf6bf Mon Sep 17 00:00:00 2001
+From 5489be0891ec97e149c658e1f845f9aae9a31675 Mon Sep 17 00:00:00 2001
 From: Mike Pagano <mpagano@gentoo.org>
 Date: Sat, 31 Oct 2026 22:43:44 +0700
 Subject: [PATCH 01/11] gentoo: (7.3)
@@ -10,6 +10,7 @@ Subject: [PATCH 01/11] gentoo: (7.3)
 1715_x86-cpu-amd-avoid-printing-reset-reasons-on-Xen-domU.patch
 1730_parisc-Disable-prctl.patch
 2000_BT-Check-key-sizes-only-if-Secure-Simple-Pairing-enabled.patch
+2050_sctp-sendmsg-slept-free-fix.patch
 2400_mt7921_fix-arr-indx-oob-in-mt7921-load-clc.patch
 2901_permit-menuconfig-sorting.patch
 2902_Replace-CONST-CAST-with-const-cast.patch
@@ -31,6 +32,7 @@ Signed-off-by: Salman Wahib <sxlmnwb.dev@gmail.com>
  fs/namei.c                                    |   8 +-
  kernel/sys.c                                  |  10 +-
  net/bluetooth/hci_conn.c                      |   9 +-
+ net/sctp/socket.c                             |  12 +-
  scripts/gcc-plugins/gcc-common.h              |   4 +-
  scripts/kconfig/lxdialog/dialog.h             |   5 +-
  scripts/kconfig/lxdialog/menubox.c            |   7 +-
@@ -38,7 +40,7 @@ Signed-off-by: Salman Wahib <sxlmnwb.dev@gmail.com>
  scripts/kconfig/mconf.c                       |   9 +-
  tools/lib/bpf/Makefile                        |   7 +-
  tools/lib/bpf/elf.c                           |   8 +
- 17 files changed, 324 insertions(+), 19 deletions(-)
+ 18 files changed, 334 insertions(+), 21 deletions(-)
  create mode 100644 distro/Kconfig
 
 diff --git a/Kconfig b/Kconfig
@@ -303,10 +305,10 @@ index 24213a0ea..16c4544e5 100644
  		goto out;
  
 diff --git a/drivers/net/wireless/mediatek/mt76/mt7921/mcu.c b/drivers/net/wireless/mediatek/mt76/mt7921/mcu.c
-index 40546005c..622c1f469 100644
+index fec5205b3..7ce2abd21 100644
 --- a/drivers/net/wireless/mediatek/mt76/mt7921/mcu.c
 +++ b/drivers/net/wireless/mediatek/mt76/mt7921/mcu.c
-@@ -494,6 +494,9 @@ static int mt7921_load_clc(struct mt792x_dev *dev, const char *fw_name)
+@@ -495,6 +495,9 @@ static int mt7921_load_clc(struct mt792x_dev *dev, const char *fw_name)
  		if (clc->idx >= ARRAY_SIZE(phy->clc))
  			continue;
  
@@ -317,10 +319,10 @@ index 40546005c..622c1f469 100644
  		if (phy->clc[clc->idx])
  			continue;
 diff --git a/fs/namei.c b/fs/namei.c
-index e45e30603..12f7ce210 100644
+index 00ef70a4e..dcbb243d7 100644
 --- a/fs/namei.c
 +++ b/fs/namei.c
-@@ -1201,10 +1201,10 @@ static inline void put_link(struct nameidata *nd)
+@@ -1207,10 +1207,10 @@ static inline void put_link(struct nameidata *nd)
  		path_put(&last->link);
  }
  
@@ -378,6 +380,36 @@ index cf44452e0..86ec86dca 100644
  		return 0;
  
  	return 1;
+diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+index b5a57f61e..6ed184ed0 100644
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -2063,6 +2063,11 @@ static int sctp_sendmsg(struct sock *sk, struct msghdr *msg, size_t msg_len)
+ 
+ 			asoc = transport->asoc;
+ 			new = true;
++			/* sctp_sendmsg_to_asoc() may release the socket lock,
++			 * and the new asoc can be peeled off meanwhile.  Hold
++			 * it, and free it on error only if sk still owns it.
++			 */
++			sctp_association_hold(asoc);
+ 		}
+ 
+ 		if (!sctp_style(sk, TCP) && !(sflags & SCTP_ADDR_OVER))
+@@ -2084,8 +2089,11 @@ static int sctp_sendmsg(struct sock *sk, struct msghdr *msg, size_t msg_len)
+ 
+ 	/* Send msg to the asoc */
+ 	err = sctp_sendmsg_to_asoc(asoc, msg, msg_len, transport, sinfo);
+-	if (err < 0 && err != -ESRCH && new)
+-		sctp_association_free(asoc);
++	if (new) {
++		if (err < 0 && err != -ESRCH && asoc->base.sk == sk)
++			sctp_association_free(asoc);
++		sctp_association_put(asoc);
++	}
+ 
+ out_unlock:
+ 	release_sock(sk);
 diff --git a/scripts/gcc-plugins/gcc-common.h b/scripts/gcc-plugins/gcc-common.h
 index abb1964c4..9c297dd4a 100644
 --- a/scripts/gcc-plugins/gcc-common.h

@@ -1,4 +1,4 @@
-From fa2122b5a692626c90db5e81d69c6ca1776ed702 Mon Sep 17 00:00:00 2001
+From 3a07f47268854fcfb1590e76450ce1178a213ca9 Mon Sep 17 00:00:00 2001
 From: David Morley <morleyd@google.com>
 Date: Mon, 27 Apr 2026 10:31:55 +0200
 Subject: [PATCH 03/11] tcp_bbr: (7.3) update TCP 'bbr' congestion control
@@ -379,10 +379,10 @@ index 791e15063..4f2c7bca2 100644
  	.undo_cwnd = bpf_tcp_ca_undo_cwnd,
  	.sndbuf_expand = bpf_tcp_ca_sndbuf_expand,
 diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index f7aacca44..5d477d4e5 100644
+index 926c0e7db..37b9cf3b7 100644
 --- a/net/ipv4/tcp.c
 +++ b/net/ipv4/tcp.c
-@@ -3484,6 +3484,7 @@ int tcp_disconnect(struct sock *sk, int flags)
+@@ -3492,6 +3492,7 @@ int tcp_disconnect(struct sock *sk, int flags)
  	tp->rx_opt.dsack = 0;
  	tp->rx_opt.num_sacks = 0;
  	tp->rcv_ooopack = 0;
@@ -390,7 +390,7 @@ index f7aacca44..5d477d4e5 100644
  
  
  	/* Clean up fastopen related fields */
-@@ -4269,6 +4270,8 @@ void tcp_get_info(struct sock *sk, struct tcp_info *info)
+@@ -4277,6 +4278,8 @@ void tcp_get_info(struct sock *sk, struct tcp_info *info)
  		info->tcpi_options |= TCPI_OPT_ECN;
  	if (tp->ecn_flags & TCP_ECN_SEEN)
  		info->tcpi_options |= TCPI_OPT_ECN_SEEN;

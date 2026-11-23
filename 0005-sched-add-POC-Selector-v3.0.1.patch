@@ -1,4 +1,4 @@
-From b318d054c29c2e423f4e0cbf0c8e3efe3c3db9e8 Mon Sep 17 00:00:00 2001
+From 85b10d5e018c2cee759818fd31c8e3abb912f68d Mon Sep 17 00:00:00 2001
 From: Masahito S <firelzrd@gmail.com>
 Date: Sun, 1 Nov 2026 05:43:53 +0900
 Subject: [PATCH 05/11] sched: add POC Selector v3.0.1
@@ -31,7 +31,7 @@ Signed-off-by: Salman Wahib <sxlmnwb.dev@gmail.com>
  create mode 100644 kernel/sched/poc_sync.h
 
 diff --git a/include/linux/sched.h b/include/linux/sched.h
-index 5c77d569d..931e06104 100644
+index 122b209f0..e0fad566d 100644
 --- a/include/linux/sched.h
 +++ b/include/linux/sched.h
 @@ -814,6 +814,26 @@ struct wake_q_node {
@@ -138,10 +138,10 @@ index 37bafffa7..5b62727d3 100644
  	bool "Kernel->user space relay support (formerly relayfs)"
  	select IRQ_WORK
 diff --git a/kernel/sched/core.c b/kernel/sched/core.c
-index 5a6d76323..fe0e9b159 100644
+index faa07b92b..4986268ae 100644
 --- a/kernel/sched/core.c
 +++ b/kernel/sched/core.c
-@@ -4604,6 +4604,10 @@ static void __sched_fork(u64 clone_flags, struct task_struct *p)
+@@ -4608,6 +4608,10 @@ static void __sched_fork(u64 clone_flags, struct task_struct *p)
  	p->se.vlag			= 0;
  	p->se.rel_deadline		= 0;
  	INIT_LIST_HEAD(&p->se.group_node);
@@ -153,10 +153,10 @@ index 5a6d76323..fe0e9b159 100644
  	/* A delayed task cannot be in clone(). */
  	WARN_ON_ONCE(p->se.sched_delayed);
 diff --git a/kernel/sched/ext/ext.c b/kernel/sched/ext/ext.c
-index 84774147a..2399a84d0 100644
+index 4b04ed044..b77407697 100644
 --- a/kernel/sched/ext/ext.c
 +++ b/kernel/sched/ext/ext.c
-@@ -6763,6 +6763,9 @@ static void scx_root_disable(struct scx_sched *sch)
+@@ -6989,6 +6989,9 @@ static void scx_root_disable(struct scx_sched *sch)
  	mutex_unlock(&scx_enable_mutex);
  
  	WARN_ON_ONCE(scx_set_enable_state(SCX_DISABLED) != SCX_DISABLING);
@@ -166,7 +166,7 @@ index 84774147a..2399a84d0 100644
  done:
  	scx_bypass(sch, false);
  }
-@@ -8067,6 +8070,10 @@ static void scx_root_enable_workfn(struct kthread_work *work)
+@@ -8295,6 +8298,10 @@ static void scx_root_enable_workfn(struct kthread_work *work)
  		}
  	}
  
@@ -178,7 +178,7 @@ index 84774147a..2399a84d0 100644
  		sch->ops.name, scx_switched_all() ? "" : " (partial)");
  	kobject_uevent(&sch->kobj, KOBJ_ADD);
 diff --git a/kernel/sched/fair.c b/kernel/sched/fair.c
-index 673adea0d..045f7b59f 100644
+index 279dae36c..97c321f8c 100644
 --- a/kernel/sched/fair.c
 +++ b/kernel/sched/fair.c
 @@ -1353,7 +1353,7 @@ static bool update_deadline(struct cfs_rq *cfs_rq, struct sched_entity *se)
@@ -465,7 +465,7 @@ index 673adea0d..045f7b59f 100644
  		return;
  
 diff --git a/kernel/sched/idle.c b/kernel/sched/idle.c
-index eb73b65ce..1d3721506 100644
+index e0c10a5db..51ab13982 100644
 --- a/kernel/sched/idle.c
 +++ b/kernel/sched/idle.c
 @@ -305,6 +305,11 @@ static void do_idle(void)
@@ -3039,10 +3039,10 @@ index 000000000..e645ed7be
 +	poc_sync_resolve(p, exec - (p->poc_sync.mark - 1));
 +}
 diff --git a/kernel/sched/sched.h b/kernel/sched/sched.h
-index 43b20b32f..3dc5db13d 100644
+index 335e6e0a5..aa8007b8a 100644
 --- a/kernel/sched/sched.h
 +++ b/kernel/sched/sched.h
-@@ -1200,6 +1200,11 @@ struct rq {
+@@ -1202,6 +1202,11 @@ struct rq {
  	call_single_data_t	nohz_csd;
  #endif /* CONFIG_NO_HZ_COMMON */
  
@@ -3054,7 +3054,7 @@ index 43b20b32f..3dc5db13d 100644
  #ifdef CONFIG_UCLAMP_TASK
  	/* Utilization clamp values based on CPU's RUNNABLE tasks */
  	struct uclamp_rq	uclamp[UCLAMP_CNT] ____cacheline_aligned;
-@@ -2412,6 +2417,8 @@ static inline struct task_group *task_group(struct task_struct *p)
+@@ -2414,6 +2419,8 @@ static inline struct task_group *task_group(struct task_struct *p)
  
  #endif /* !CONFIG_CGROUP_SCHED */
  

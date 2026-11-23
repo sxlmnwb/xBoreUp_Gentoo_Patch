@@ -1,4 +1,4 @@
-From e0c5533f2998641d497709d891562b0ceeb50d23 Mon Sep 17 00:00:00 2001
+From c2984a4f6a10bc846744c4a26388b827eda39087 Mon Sep 17 00:00:00 2001
 From: Masahito S <firelzrd@gmail.com>
 Date: Wed, 4 Nov 2026 12:15:10 +0900
 Subject: [PATCH 04/11] sched: add BORE Scheduler v7.0.1
@@ -31,7 +31,7 @@ Signed-off-by: Salman Wahib <sxlmnwb.dev@gmail.com>
  create mode 100644 kernel/sched/bore.c
 
 diff --git a/include/linux/sched.h b/include/linux/sched.h
-index 78bfc0e32..5c77d569d 100644
+index 09d90f5ed..122b209f0 100644
 --- a/include/linux/sched.h
 +++ b/include/linux/sched.h
 @@ -832,6 +832,32 @@ struct task_ipi_mask {
@@ -217,7 +217,7 @@ index 25a68e1a9..fc0e9d168 100644
  	}
  	list_del_rcu(&p->thread_node);
 diff --git a/kernel/fork.c b/kernel/fork.c
-index 8ad346469..d390cbd6b 100644
+index ddd3dbc08..0ed4323b8 100644
 --- a/kernel/fork.c
 +++ b/kernel/fork.c
 @@ -120,6 +120,10 @@
@@ -231,7 +231,7 @@ index 8ad346469..d390cbd6b 100644
  #include <trace/events/sched.h>
  
  #define CREATE_TRACE_POINTS
-@@ -2466,6 +2470,11 @@ __latent_entropy struct task_struct *copy_process(
+@@ -2474,6 +2478,11 @@ __latent_entropy struct task_struct *copy_process(
  	p->start_time = ktime_get_ns();
  	p->start_boottime = ktime_get_boottime_ns();
  
@@ -243,7 +243,7 @@ index 8ad346469..d390cbd6b 100644
  	/*
  	 * Make it visible to the rest of the system, but dont wake it up yet.
  	 * Need tasklist lock for parent etc handling!
-@@ -2551,7 +2560,11 @@ __latent_entropy struct task_struct *copy_process(
+@@ -2565,7 +2574,11 @@ __latent_entropy struct task_struct *copy_process(
  							 p->real_parent->signal->is_child_subreaper;
  			if (clone_flags & CLONE_AUTOREAP)
  				p->signal->autoreap = 1;
@@ -853,7 +853,7 @@ index e2cf3b08d..aad225930 100644
  
  #ifdef CONFIG_CGROUP_CPUACCT
 diff --git a/kernel/sched/core.c b/kernel/sched/core.c
-index 1754d9f95..5a6d76323 100644
+index 4a051764e..faa07b92b 100644
 --- a/kernel/sched/core.c
 +++ b/kernel/sched/core.c
 @@ -99,6 +99,10 @@
@@ -867,7 +867,7 @@ index 1754d9f95..5a6d76323 100644
  EXPORT_TRACEPOINT_SYMBOL_GPL(ipi_send_cpu);
  EXPORT_TRACEPOINT_SYMBOL_GPL(ipi_send_cpumask);
  
-@@ -1533,7 +1537,11 @@ int tg_nop(struct task_group *tg, void *data)
+@@ -1536,7 +1540,11 @@ int tg_nop(struct task_group *tg, void *data)
  
  void set_load_weight(struct task_struct *p, bool update_load)
  {
@@ -879,7 +879,7 @@ index 1754d9f95..5a6d76323 100644
  	struct load_weight lw;
  
  	if (task_has_idle_policy(p)) {
-@@ -8993,6 +9001,10 @@ void __init sched_init(void)
+@@ -9007,6 +9015,10 @@ void __init sched_init(void)
  	BUG_ON(!sched_class_above(&ext_sched_class, &idle_sched_class));
  #endif
  
@@ -997,7 +997,7 @@ index 72236db67..d11bef5b3 100644
  	P(se.avg.runnable_sum);
  	P(se.avg.util_sum);
 diff --git a/kernel/sched/fair.c b/kernel/sched/fair.c
-index b35e23f93..673adea0d 100644
+index 327d5f8f4..279dae36c 100644
 --- a/kernel/sched/fair.c
 +++ b/kernel/sched/fair.c
 @@ -61,6 +61,10 @@
@@ -1369,7 +1369,7 @@ index b35e23f93..673adea0d 100644
  	/*
  	 * Tell update_rq_clock() that we've just updated,
  	 * so we don't do microscopic update in schedule()
-@@ -15523,6 +15688,9 @@ static void switched_to_fair(struct rq *rq, struct task_struct *p)
+@@ -15531,6 +15696,9 @@ static void switched_to_fair(struct rq *rq, struct task_struct *p)
  	WARN_ON_ONCE(p->se.sched_delayed);
  
  	attach_task_cfs_rq(p);
@@ -1380,10 +1380,10 @@ index b35e23f93..673adea0d 100644
  	set_task_max_allowed_capacity(p);
  
 diff --git a/kernel/sched/sched.h b/kernel/sched/sched.h
-index 4c25fbe84..43b20b32f 100644
+index 8d805aa7c..335e6e0a5 100644
 --- a/kernel/sched/sched.h
 +++ b/kernel/sched/sched.h
-@@ -2301,7 +2301,11 @@ extern int group_balance_cpu(struct sched_group *sg);
+@@ -2303,7 +2303,11 @@ extern int group_balance_cpu(struct sched_group *sg);
  extern void update_sched_domain_debugfs(void);
  extern void dirty_sched_domain_sysctl(int cpu);
  
@@ -1395,7 +1395,7 @@ index 4c25fbe84..43b20b32f 100644
  
  static inline const struct cpumask *task_user_cpus(struct task_struct *p)
  {
-@@ -3147,7 +3151,12 @@ static inline void attach_one_task(struct rq *rq, struct task_struct *p)
+@@ -3157,7 +3161,12 @@ static inline void attach_one_task(struct rq *rq, struct task_struct *p)
  extern __read_mostly unsigned int sysctl_sched_nr_migrate;
  extern __read_mostly unsigned int sysctl_sched_migration_cost;
  
